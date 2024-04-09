@@ -49,3 +49,6 @@ override.tf.json
 .terraformrc
 terraform.rc
 .terraform.lock.hcl
+
+# Mono folder from VS Code extension C# Dev Kit
+**/.mono/*
