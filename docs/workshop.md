@@ -3,49 +3,28 @@ published: true
 type: workshop
 title: Product Hands-on Lab - Functions
 short_title: Azure Functions
-description: This workshop will cover multiple Azure Functions that you will use to build a complete real world scenario.
+description: This workshop will cover Azure Functions service that you will use to build a complete real world scenario.
 level: beginner # Required. Can be 'beginner', 'intermediate' or 'advanced'
 authors: # Required. You can add as many authors as needed
   - Damien Aicheh
-  - Julien Strebler
   - Iheb Khemissi
 contacts: # Required. Must match the number of authors
   - "@damienaicheh"
-  - "@justrebl"
   - "@ikhemissi"
-duration_minutes: 300
-tags: azure, azure functions, event grid, key vault, cosmos db, web pubsub, cognitive services, static web app, csu, codespace, devcontainer
+duration_minutes: 180
+tags: azure, azure functions, azure durable functions, event grid, key vault, cosmos db, web pubsub, static web app, csu, codespace, devcontainer
 navigation_levels: 3
 ---
 
 # Product Hands-on Lab - Functions
 
-Welcome to this Azure Functions Workshop. You'll be experimenting with Azure Serverless services in multiple labs to achieve a real world scenario. Don't worry, even if the challenges will increase in difficulty, this is a step by step lab, you will be guided through the whole process.
+Welcome to this Azure Functions Workshop. You'll be experimenting with Azure Functions service in multiple labs to achieve a real world scenario. Don't worry, even if the challenges will increase in difficulty, this is a step by step lab, you will be guided through the whole process.
 
 During this workshop you will have the instructions to complete each steps. It is recommended to search for the answers in provided resources and links before looking at the solutions placed under the '📚 Toggle solution' panel.
 
-<div class="warning" data-title="🚀 2 hours version">
-
-> While we strongly believe that **Trial and Error** is an essential part of a practical learning experience, it is probable that you might only have a couple hours in front of you to go through this lab.
-> 
-> You will find a **FastTrack** version of this product hands-on lab (about 2 hours) to play while getting a grasp on most of the Azure Serverless essential concepts detailed in this lab.
-The **FastTrack** required steps will be prefixed with a `🚀` label : These are **mandatory** for the lab to go forward. 
->
-> The FastTrack route will set up most of the infrastructures and connections between resources to help you focus on the application's content and configuration. 
-> We also provide instructions for a deep dive session where you'll prefer to configure everything manually via the command line or the Azure Portal. 
-> 
-> Most of the time, the deep dive path will not cross the FastTrack path, but if this happens, they will be hidden under a `🧑‍💻 Manual Setup` detail panel to avoid confusion with the FastTrack preset up route.
-> These `🧑‍💻 Manual Setup` details can be **ignored** when you run the FastTrack path.
->
-> If you go the `🚀` path, we encourage you to come back and go through the entire lab explanations later on to get a deeper understanding of all the concepts described below, from Azure resource choice, to provisioning, application configuration and deployment.
-> 
-> In a deep dive session, **all of the instructions** whether they are tagged with `🧑‍💻 Manual Setup`, `🚀` or no tag at all, will be necessary to guide you through the entire lab.
-
-</div>
-
 <div class="task" data-title="Task">
 
-> You will find the instructions and expected configurations for each Lab step in these yellow **Task** boxes.
+> You will find the instructions and expected configurations for each Lab step in these yellow **TASK** boxes.
 > Inputs and parameters to select will be defined, all the rest can remain as default as it has no impact on the scenario.
 >
 > Log into your Azure subscription locally using Azure CLI and on the [Azure Portal][az-portal] using your own credentials.
@@ -59,7 +38,8 @@ Before starting this lab, be sure to set your Azure environment :
 
 - An Azure Subscription with the **Contributor** role to create and manage the labs' resources and deploy the infrastructure as code
 - A dedicated resource group for this lab to ease the cleanup at the end.
-- Register the Azure providers on your Azure Subscription if not done yet: `Microsoft.CognitiveServices`, `Microsoft.DocumentDB`, `Microsoft.EventGrid`, `Microsoft.KeyVault`, `Microsoft.Logic`, `Microsoft.SignalRService`, `Microsoft.Web`
+- Register the Azure providers on your Azure Subscription if not done yet: `Microsoft.CognitiveServices`, `Microsoft.DocumentDB`, `Microsoft.EventGrid`, `Microsoft.KeyVault`, `Microsoft.SignalRService`, `Microsoft.Web`, `Microsoft.ApiManagement`.
+
 
 To retrieve the lab content :
 
@@ -67,7 +47,7 @@ To retrieve the lab content :
 - Create a [fork][Repo-fork] of the repository from the **main** branch to help you keep track of your changes
 
 3 development options are available:
-  - 🥇 *Preferred method* : Pre-configured GitHub Codespace 
+  - 🥇 **Preferred method** : Pre-configured GitHub Codespace 
   - 🥈 Local Devcontainer
   - 🥉 Local Dev Environment with all the prerequisites detailed below
 
@@ -94,7 +74,7 @@ To get your codespace ready for the labs, here are a few steps to execute :
 
 ![codespace-new](./assets/codespace-new.png)
 
-- You can also provision a beefier configuration by defining creation options and select the **Machine Type** you like : 
+- You can also provision a beefier configuration by defining creation options and select the **Machine Type** you like: 
 
 ![codespace-configure](./assets/codespace-configure.png)
 
@@ -107,7 +87,7 @@ Here are the required tools to do so :
 - [Docker Desktop][docker-desktop] running
 - [Visual Studio Code][vs-code] installed
 
-Start by cloning the Hands-on-lab-Serverless repo you just forked on your local Machine and open the local folder in Visual Studio Code.
+Start by cloning the Hands-on-lab-Functions repo you just forked on your local Machine and open the local folder in Visual Studio Code.
 Once you have cloned the repository locally, make sure Docker Desktop is up and running and open the cloned repository in Visual Studio Code.  
 
 You will be prompted to open the project in a Dev Container. Click on `Reopen in Container`. 
@@ -125,12 +105,11 @@ The following tools and access will be necessary to run the lab in good conditio
 - [Azure CLI][az-cli-install] installed on your machine
 - [Azure Functions Core Tools][az-func-core-tools] installed, this will be useful for creating the scaffold of your Azure Functions using command line.
 - If you are using VS Code, you can also install the [Azure Function extension][azure-function-vs-code-extension]
-- The 3 following languages if you want to run all the Azure Functions solutions : 
-  - [.Net 7][download-dotnet]
+- The 2 following languages if you want to run all the Azure Functions solutions : 
+  - [.Net 8][download-dotnet]
   - [Python 3.x][download-python]
-  - [Node 18][download-node]
 
-Once you have set up your local environment, you can clone the Hands-on-lab-serverless repo you just forked on your machine, and open the local folder in Visual Studio Code and head to the next step. 
+Once you have set up your local environment, you can clone the Hands-on-lab-Functions repo you just forked on your machine, and open the local folder in Visual Studio Code and head to the next step. 
 
 ## 🚀 Visual Studio Code Setup
 
@@ -141,7 +120,7 @@ To do so, click the **burger menu** in the top left corner (visible only with co
 
 ![codespace-workspace](./assets/codespace-workspace.png)
 
-- Select `.vscode/hands-on-lab-serverless.code-workspace` :
+- Select `.vscode/hands-on-lab-functions.code-workspace` :
 
 ![codespace-workspace-select](./assets/codespace-workspace-select.png)
 
@@ -157,7 +136,6 @@ Let's begin!
 
 > - Log into your Azure subscription in your environment using Azure CLI and on the [Azure Portal][az-portal] using your credentials.
 > - Instructions and solutions will be given for the Azure CLI, but you can also use the Azure Portal if you prefer.
-> - Register the Azure providers on your Azure Subscription if not done yet: `Microsoft.Web`, `Microsoft.OperationalInsights`, `Microsoft.Cache`, `Microsoft.ApiManagement`, `Microsoft.DocumentDB`
 
 </div>
 
@@ -189,10 +167,10 @@ az provider register --namespace 'Microsoft.DocumentDB'
 az provider register --namespace 'Microsoft.EventGrid'
 # Azure Key Vault
 az provider register --namespace 'Microsoft.KeyVault'
-# Azure Logic Apps
-az provider register --namespace 'Microsoft.Logic'
 # Azure Web PubSub
 az provider register --namespace 'Microsoft.SignalRService'
+# Azure API Management
+az provider register --namespace 'Microsoft.ApiManagement'
 # Azure Functions
 az provider register --namespace 'Microsoft.Web'
 ```
@@ -201,7 +179,7 @@ az provider register --namespace 'Microsoft.Web'
 
 ### Deploy the infrastructure
 
-If you choose to do the FastTrack version, you must deploy the infrastructure before starting the lab. 
+You must deploy the infrastructure before starting the lab. 
 
 First, you need to initialize the terraform infrastructure by running the following command:
 
@@ -252,10 +230,10 @@ Here is a diagram to illustrate the flow:
 1. The web application sends an HTTP request to APIM
 1. An Azure Function endpoint handling uploads will process the request and upload the file to a Storage Account
 1. When the file is uploaded the Event Grid service will detect it and publish the "Blob created event"
-1. The Event Grid System Topic will trigger a Logic App
-1. The Logic App retrieves the uploaded audio file
-1. The audio file is sent to Azure Cognitive Services via the Logic App Workflow. The speech to text cognitive service will process the file and return the result to the Logic App
-1. The Logic App Workflow will then store the transcript of the audio file in a Cosmos DB Database
+1. The Event Grid System Topic will trigger an Azure Durable Function
+1. The Azure Durable Function retrieves the uploaded audio file
+1. The audio file is sent to Azure Cognitive Services via the Azure Durable Function. The speech to text cognitive service will process the file and return the result to the Azure Durable Function.
+1. The Azure Durable Function will then store the transcript of the audio file in a Cosmos DB Database
 1. Another Azure Function endpoint will be triggered by the update event in CosmosDB.
 1. The Azure Function will then fetch the transcript from CosmosDB and publish it to Web Pub/Sub
 1. The web application being a subscriber of the Web Pub-Sub resource, it will be notified about the new transcript being added via a websocket and display it in the list.
@@ -268,246 +246,235 @@ Here is a diagram to illustrate the flow:
 
 You will get more details about each of these services during the Hands On Lab.
 
-## Naming conventions
-
-Before starting to deploy any resource in Azure, it's important to follow a naming convention to ensure resource name uniqueness and ease their identification. Based on the official [documentation][az-naming-convention] you need to define a few things:
-
-- The application name
-- The environment
-- The region
-- The instance number
-
-You will also add an owner property, so for the purpose of this lab the values will be:
-
-- The service prefix: `func` (for Azure Function)
-- The environment: `dev`
-- The region: `we` (for West Europe)
-- The application name: `hol` (for Hands On Lab)
-- The owner: `ms`
-- The instance: `01`
-
-You will use this convention for the rest of the scenario:
-
-```xml
-<!--If the resource prefix has a dash: -->
-<service-prefix>-<environment>-<region>-<application-name>-<owner>-<instance>
-<!--If the resource does not autorize any special caracters: -->
-<service-prefix><environment><region><application-name><owner><instance>
-```
-
-<div class="info" data-title="Note">
-
-> Be sure to use **your own values** to have unique names or use your own convention.
-> [Official resource abbreviations][az-abrevation]
->
-> Some services like Azure Storage Account or Azure KeyVault have a maximum size of 24 characters, so please consider using relevant abbreviations as small as possible.
-
-</div>
-
 ## Programming language
 
-You will have to create few functions in this workshop to address our overall scenario. You can choose the programming language you are the most comfortable with among the ones [supported by Azure Functions][az-func-languages]. We will provide examples in Python and .NET 7 (isolated) for the moment, but other languages might be added in the future.
+You will have to create few functions in this workshop to address our overall scenario. You can choose the programming language you are the most comfortable with among the ones [supported by Azure Functions][az-func-languages]. We will provide examples in .NET 8 (isolated) for the moment, but other languages might be added in the future.
 
 With everything ready let's start the lab 🚀
 
 [az-cli-install]: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli
 [az-func-core-tools]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=v4%2Clinux%2Ccsharp%2Cportal%2Cbash#install-the-azure-functions-core-tools
 [az-func-languages]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-versions#languages
-[az-naming-convention]: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/resource-naming
-[az-abrevation]: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations
 [az-portal]: https://portal.azure.com
 [vs-code]: https://code.visualstudio.com/
 [azure-function-vs-code-extension]: https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-azurefunctions
 [docker-desktop]: https://www.docker.com/products/docker-desktop/
-[Repo-fork]: https://github.com/microsoft/hands-on-lab-serverless/fork
+[Repo-fork]: https://github.com/microsoft/hands-on-lab-functions/fork
 [git-client]: https://git-scm.com/downloads
 [github-account]: https://github.com/join
-[download-dotnet]: https://dotnet.microsoft.com/en-us/download/dotnet/7.0
+[download-dotnet]: https://dotnet.microsoft.com/en-us/download/dotnet/8.0
 [download-python]: https://www.python.org/downloads/
-[download-node]: https://nodejs.org/en
 
 ---
 
-# Lab 0 : The Web Application (1 hour)
-
-## Create a resource group (5 min)
-
-Let's start by creating the resource group for this Hand's On Lab. The resource group is a logical structure to store Azure components used to group your Azure resources.
-
-Remember, the naming convention for a resource groups will be: `rg-<environment>-<region>-<application-name>-<owner>-<instance>`
-
-<div class="task" data-title="Tasks">
-
-> - Create a `resource group` in the region of your choice.
-
-</div>
-
-<div class="tip" data-title="Tips">
-
-> For the purpose of this lab you will create all the resources in the same region, for instance `France Central` (francecentral) or `West Europe` (westeurope).
-> It's important to note that Static Web App built-in api isn't available in `France Central` at the moment of the lab creation : You can still create the rest in France Central, this won't affect the rest of the labs.
->
-> [Resource Groups][resource-group]
-
-</div>
-
-<details>
-<summary>📚 Toggle solution</summary>
-
-```bash
-# Use az account list-locations to get a location:
-
-az account list-locations -o table
-
-# Then create the resource group using the selected location:
-
-az group create --name <resource-group> --location <region>
-```
-
-</details>
-
-## Web App Portal (55 min)
-
-You have created a Static Web App to help assess progress on this Hands-on-Lab and make it easier to upload and get back transcriptions using a simple web interface.
-
-![Demo Web App screenshot](./assets/static-web-app-demo.png)
-
-Deploying the Web App is optional but it is highly recommended as it will simplify the testing process so that you can focus on the fun stuff.
-
-You can deploy the [demo Web App][github-demo-web-app] using either Github Actions (recommended) or [Azure Static Web Apps CLI][swa-cli].
-
-Remember to define a naming convention, for a static web app it will be this format: `stapp-<environment>-<region>-<application-name>-<owner>-<instance>`
-
-### Using Github Actions
-
-You can rely on Github Actions to build and deploy the code of the Web app into a Static Web App in Azure.
-
-To do this, you need to [fork the project][github-hol-fork] on Github and then run the following command:
-
-```sh
-# Replace the following settings with your own:
-# - <unique-web-app-name>: unique Static Web App name
-# - <github-username> : your username or organisation in Github where you forked the project
-# - <resource-group> : name of your resource group
-# - westeurope : you can use a different location if you want to deploy the web app somewhere else. Static Web App might not be available in every Azure Region but selecting another one that the default defined above will not be an issue for the rest of the lab. 
-
-az staticwebapp create \
-    --name <unique-web-app-name> \
-    --resource-group <resource-group> \
-    --source https://github.com/<github-username>/hands-on-lab-serverless \
-    --location "westeurope" \
-    --branch main \
-    --app-location "./src/webapp"  \
-    --api-location "./src/webapp/api"  \
-    --output-location "build" \
-    --login-with-github
-```
-
-This command will create the Static Web App in Azure and will then prompt you for permissions in Github so that it can add a Github Action to your forked project. This action will then build and deploy the code of the static web app on your behalf.
-
-### Using Azure Static Web Apps CLI
-
-You can also opt for building and deploying the web app from your machine without having to fork the project and give permissions to [AzureAppServiceCLI][app-service-cli] to access the code.
-
-First let's go inside the `src/webapp` folder.
-
-Now, you can follow these steps to create the static web app:
-
-```sh
-# 1. Create the Static Web App in Azure
-# Replace the following settings with your own:
-# - <unique-web-app-name>: unique Static Web App name
-# - <resource-group> : name of your resource group
-# - westeurope : you can use a different location if you want to deploy the web app somewhere else
-
-az staticwebapp create \
-    --name <unique-web-app-name> \
-    --resource-group <resource-group> \
-    --location "westeurope"
-
-# 2. Go to the root of the downloaded app and install project dependencies
-# You need to have NodeJS 18 installed
-npm install
-
-# 3. Build the Web App
-npm run swa:build
-
-# 4. Deploy the web app code into the Static Web App
-# Replace <resource-group> with the name of your resource group
-# Back to the root repository
-npm run swa:deploy -- \
-  --resource-group <resource-group> \
-  --app-name <unique-web-app-name> \
-  --no-use-keychain
-```
-
-Et voila, now you should have a running demo Web App 🚀
-It is pretty much a blank canvas at this stage, but you will soon be able to add new features to it as you progress with the lab.
-
-[resource-group]: https://learn.microsoft.com/fr-fr/cli/azure/group?view=azure-cli-latest
-[github-demo-web-app]: https://github.com/microsoft/hands-on-lab-serverless/tree/main/src/webapp
-[swa-cli]: https://aka.ms/swa/cli-local-development
-[github-hol-fork]: https://github.com/microsoft/hands-on-lab-serverless/fork
-[app-service-cli]: https://learn.microsoft.com/en-us/azure/static-web-apps/get-started-cli?tabs=react
-[github-hol]: https://github.com/microsoft/hands-on-lab-serverless
-[webapp-zip]: https://github.com/microsoft/hands-on-lab-serverless/releases/download/latest/webapp.zip
-
----
-
-# 🚀 Lab 1 : Transcribe an audio file (3 hours)
+# Lab 1 : Transcribe an audio file (3 hours)
 
 For this first lab, you will focus on the following scope :
 
 ![Hand's On Lab Architecture Lab 1](assets/architecture-lab1.svg)
 
-## Create the storage (5 min)
-
 The Azure storage account is used to store data objects, including blobs, file shares, queues, tables, and disks. You will use it to store the audios files inside an `audios` container.
 
-With the resource group ready, let's create a storage account with a container named `audios` that will store all audios. The naming convention for a Storage Account is: `st<environment><region><application-name><owner><instance>`.
+To check everything was created as expected, open the [Azure Portal][az-portal] and you should retrieve your container:
+
+![Storage account access keys](assets/storage-account-show-container.png)
+
+
+## Upload a file (1 hour)
+
+### Azure Functions : A bit of theory
+
+Azure Functions is a `compute-on-demand` solution, offering a common function programming model for various languages. To use this serverless solution, no need to worry about deploying and maintaining infrastructures, Azure provides with the necessary up-to-date compute resources needed to keep your applications running. Focus on your code and let Azure Functions handle the rest.
+
+Azure Functions are event-driven : They must be triggered by an event coming from a variety of sources. This model is based on a set of `triggers` and `bindings` which let you avoid hardcoding access to other services. Your function receives data (for example, the content of a queue message) in function parameters. You send data (for example, to create a queue message) by using the return value of the function :
+
+- `Binding` to a function is a way of declaratively connecting another resource to the function; bindings may be connected as input bindings, output bindings, or both. Azure services such as Azure Storage blobs and queues, Service Bus queues, Event Hubs, and Cosmos DB provide data to the function as parameters.
+- `Triggers` are a specific kind of binding that causes a function to run. A trigger defines how a function is invoked, and a function must have exactly one trigger. Triggers have associated data, which is often provided as a parameter payload to the function.
+
+In the same `Function App` you will be able to add multiple `functions`, each with its own set of triggers and bindings. These triggers and bindings can benefit from existing `expressions`, which are parameter conventions easing the overall development experience. For example, you can use an expression to use the execution timestamp, or generate a unique `GUID` name for a file uploaded to a storage account.
+
+Azure Functions run and benefit from the App Service platform, offering features like: deployment slots, continuous deployment, HTTPS support, hybrid connections and others. Apart from the `Consumption` (Serverless) model we're most interested in this Lab, Azure Functions can also be deployed a dedicated `App Service Plan`or in a hybrid model called `Premium Plan`.
+
+### Azure Functions : Let's practice
+
+At this stage in our scenario, the goal is to upload an Audio into the Storage Account inside the `audios` container. To achieve this, an Azure Function will be used as an API to upload the audio file with a unique `GUID` name to your storage account.
+
+For this step you will create an `Azure Function` with a POST `HTTP Trigger` and a `Blob Output Binding` to upload the file to the storage account. The Blob Output Binding will use a `binding expression` to generate a unique `GUID` name for the file.
 
 <div class="task" data-title="Tasks">
 
-> - Create a locally redundant storage account (`Standard LRS`).
-> - Once the storage account is ready, create a blob container named `audios` with `private access`.
+> Make sure to create an Azure Function App project with:
+> 
+> - The `func` CLI tool
+> - .NET 8 using the isolated mode
 
 </div>
 
 <div class="tip" data-title="Tips">
 
-> Azure Storage Account names do not accept hyphens and cannot exceed a maximum of 24 characters.
-> [Storage Account][storage-account]<br>
-> [Storage Account Container][storage-account-container]
+> An Azure Function example solution will be provided below in .NET 8.
+>
+> [Azure Functions][azure-function]<br> 
+> [Azure Function Core Tools][azure-function-core-tools]<br> 
+> [Basics of Azure Functions][azure-function-basics]<br> 
+> [HTTP Triggered Azure Function][azure-function-http]<br>
+> [Blob Output Binding][azure-function-blob-output]<br> 
+> [Azure Functions Binding Expressions][azure-function-bindings-expression]
 
 </div>
 
 <details>
 <summary>📚 Toggle solution</summary>
 
-```bash
-# Create the Storage Account with Standard LRS
+If necessary the source code with the solutions can be found in this Github Repository, under `./src/solutions/<Language>`.
 
-az storage account create -n <storage-account-name> \
-                          -g <resource-group> \
-                          -l <region> \
-                          --sku Standard_LRS
-```
+#### Preparation
 
-Based on the command line below, to create the container for the audio files you need to get an access key:
-
-![Storage account access keys](assets/storage-account-access-keys.png)
+You will create a function using the [Azure Function Core Tools][azure-function-core-tools]:
 
 ```bash
-# Then create the audios container inside it
+# Create a folder for your function app and navigate to it
+mkdir <function-app-name>
+cd <function-app-name>
 
-az storage container create -n audios \
-                            --account-name <storage-account-name> \
-                            --account-key <storage-account-key>
+# Create the new function app as a .NET 8 Isolated project
+# No need to specify a name, the folder name will be used by default
+func init --worker-runtime dotnet-isolated --target-framework net8.0
+
+# Create a new function endpoint with an HTTP trigger to which you'll be able to send the audio file
+func new --name AudioUpload --template 'HTTP Trigger'
+
+# Add a new Nuget package dependency to the Blob storage SDK
+dotnet add package Microsoft.Azure.Functions.Worker.Extensions.Storage.Blobs --version 5.0.0
+
+# Open the new projet inside VS Code
+code .
+
 ```
 
-To check everything was created as expected, open the [Azure Portal][az-portal] and you should retrieve your container:
+If you open the Azure Function App resource started with `func-std` in the [Azure Portal][az-portal] and go to the `Environment variables` panel. You should see in App Settings the `STORAGE_ACCOUNT_CONTAINER` set to `audios` and get a connection string from the storage account with your audios container and set the `STORAGE_ACCOUNT_CONNECTION_STRING`.
 
-![Storage account access keys](assets/storage-account-show-container.png)
+Finally, make sure to set `FILE_UPLOADING_FORMAT` to `binary` in the Static Web App settings as this function implementation expects the audio file contents to be passed directly in the POST request body, without using a form.
+
+#### .NET 8 implementation
+
+In this version of the implementation, you will be using the [.NET 8 Isolated](https://learn.microsoft.com/en-us/azure/azure-functions/dotnet-isolated-in-process-differences) runtime.
+
+Now that you have a skeleton for our `AudioUpload` function in the `AudioUpload.cs` file, you will need to update it to meet the following goals:
+
+- It should read the uploaded file from the body of the POST request
+- It should store the file as a blob inside the blob Storage Account
+- It should respond to user with a status code 200
+
+To upload the file, you will rely on the blob output binding [`BlobOutput`](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-blob-output?tabs=python-v2%2Cin-process&pivots=programming-language-csharp) of the Azure Function, which will take care of the logic of connecting to the Storage Account and uploading the function with minimal line of code in our side.
+
+To do this, let's start by adding a `AudioUploadOutput` class to the `AudioUpload.cs` file for simplicity but it can be done in a specific class.
+
+```csharp
+public class AudioUploadOutput
+{
+    [BlobOutput("%STORAGE_ACCOUNT_CONTAINER%/{rand-guid}.wav", Connection="STORAGE_ACCOUNT_CONNECTION_STRING")]
+    public byte[] Blob { get; set; }
+
+    public HttpResponseData HttpResponse { get; set; }
+}
+```
+
+This class will handle uploading the blob and returning the HTTP response:
+
+- The blob will be stored in the container identified by `STORAGE_ACCOUNT_CONTAINER` which is an environment variable.
+- The blob will be named `{rand-guid}.wav` which resolves to a UUID followed by `.wav`.
+- `STORAGE_ACCOUNT_CONNECTION_STRING` is the name of App setting which contains the connection string that you will use to connect to the blob storage account
+
+Next, you will need to update the class `AudioUpload` to add the logic for reading the file from the request, and then use `AudioUploadOutput` to perform the blob upload and returning the response.
+
+Update the code of the `Run` method in the `AudioUpload` class as follows:
+
+```csharp
+[Function(nameof(AudioUpload))]
+public AudioUploadOutput Run(
+    [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req
+)
+{
+    _logger.LogInformation("C# HTTP trigger function processed a request.");
+
+    // Read the file contents from the request
+    // and store it in the `audioFileData` buffer
+    var audioFileData = default(byte[]);
+    using (var memstream = new MemoryStream())
+    {
+        req.Body.CopyTo(memstream);
+        audioFileData = memstream.ToArray();
+    }
+
+    // Prepare the response to return to the user
+    var response = req.CreateResponse(HttpStatusCode.OK);
+    response.Headers.Add("Content-Type", "text/plain; charset=utf-8");
+    response.WriteString("Uploaded!");
+
+    // Use AudioUploadOutput to return the response and store the blob
+    return new AudioUploadOutput()
+    {
+        Blob = audioFileData,
+        HttpResponse = response
+    };
+}
+```
+
+</details>
+
+#### Deployment and testing
+
+##### Option 1 : Deploy your function with VS Code
+
+- Open the Azure extension in VS Code left panel
+- Make sure you're signed in to your Azure account
+- Open the Function App panel
+- Right-click on your function app and select `Deploy to Function App...`
+
+![Deploy to Function App](assets/function-app-deploy.png)
+
+##### Option 2 : Deploy your function with the Azure Function Core Tools
+
+Deploy your function using the VS Code extension or by command line:
+
+```bash
+func azure functionapp publish 
+func-std-<your-instance-suffix-name>
+```
+
+Let's give a try using Postman. Go to the Azure Function and select `Functions` then `AudioUpload` and select the `Get Function Url` with the `default (function key)`. 
+The Azure Function url is protected by a code to ensure a basic security layer. 
+
+![Azure Function url credentials](assets/func-url-credentials.png)
+
+Use this url into your Postman to upload the audio file:
+
+![Postman](assets/func-postman.png)
+
+</details>
+
+### Connect the Web App
+
+It's now time to connect the Azure Function App which stand for a small API to upload your audio file and the Static Web App which is the front end of your application. The API Management (APIM) will be added in a future lab.
+
+<div class="task" data-title="Task">
+
+> - Check the README of the web app project to explore the environment variables supported by the Web App you deployed on Lab 0 and set the value of `FILE_UPLOADING_URL` to the url of the uploaded function which you have created in the previous lab.
+> - If you followed the solutions provided above to create your **AudioUpload** Function endpoint: Set `FILE_UPLOADING_FORMAT` to `binary`, as it will force the frontend to treat the Azure Function endpoint as a binary receiver, rather than a multi-part form receiver.
+
+</div>
+
+<details>
+<summary>📚 Toggle solution</summary>
+
+First, go to the Azure Static Web App resource and inside `Configuration` in the `Application Settings` set the environment variable `FILE_UPLOADING_URL` to the same Azure Function `AudioUpload` endpoint you retrieved earlier in the lab above like `https://<functionapp>.azurewebsites.net/api/audioupload?code=<...>`.
+
+If your function expects a binary as an input then you will also need to set `FILE_UPLOADING_FORMAT` to `binary`
+
+Now if you try to upload a file using the Web App interface you should see a green box in the bottom left corner with a success message.
+
+![Web App](assets/static-web-app-upload-succeeded.png)
 
 </details>
 
@@ -530,7 +497,7 @@ Serverless is all about designing the application around event-driven architectu
 
 Event Grid is an event broker that you can use to integrate applications while subscribing to event sources. These events are delivered through Event Grid to subscribers such as applications, Azure services, or any accessible endpoint. Azure services, First and Third-party SaaS services as well as custom applications can be the source of these events.
 
-### 🚀 Create the Event Grid System Topic
+### !TODO Create the Event Grid System Topic
 
 The main Event Grid concept we'll use for the rest of this lab is called `System Topic`. A system topic in Event Grid represents one or more events published by Azure services such as Azure Storage and Azure Event Hubs. It basically plays the role of a pub-sub topic centralizing all the events of the associated Azure resource, and send them to all `subscribers` based on their defined `event filters` defined in specific `Event subscriptions`.
 
@@ -1046,401 +1013,6 @@ You can now validate the workflow : delete and upload once again the audio file.
 
 </details>
 
-## Add an API (1 hour)
-
-### Azure Functions : A bit of theory
-
-Azure Functions is a `compute-on-demand` solution, offering a common function programming model for various languages. To use this serverless solution, no need to worry about deploying and maintaining infrastructures, Azure provides with the necessary up-to-date compute resources needed to keep your applications running. Focus on your code and let Azure Functions handle the rest.
-
-Azure Functions are event-driven : They must be triggered by an event coming from a variety of sources. This model is based on a set of `triggers` and `bindings` which let you avoid hardcoding access to other services. Your function receives data (for example, the content of a queue message) in function parameters. You send data (for example, to create a queue message) by using the return value of the function :
-
-- `Binding` to a function is a way of declaratively connecting another resource to the function; bindings may be connected as input bindings, output bindings, or both. Azure services such as Azure Storage blobs and queues, Service Bus queues, Event Hubs, and Cosmos DB provide data to the function as parameters.
-- `Triggers` are a specific kind of binding that causes a function to run. A trigger defines how a function is invoked, and a function must have exactly one trigger. Triggers have associated data, which is often provided as a parameter payload to the function.
-
-In the same `Function App` you will be able to add multiple `functions`, each with its own set of triggers and bindings. These triggers and bindings can benefit from existing `expressions`, which are parameter conventions easing the overall development experience. For example, you can use an expression to use the execution timestamp, or generate a unique `GUID` name for a file uploaded to a storage account.
-
-Azure Functions run and benefit from the App Service platform, offering features like: deployment slots, continuous deployment, HTTPS support, hybrid connections and others. Apart from the `Consumption` (Serverless) model we're most interested in this Lab, Azure Functions can also be deployed a dedicated `App Service Plan`or in a hybrid model called `Premium Plan`.
-
-### 🚀 Azure Functions : Let's practice
-
-At this stage in our scenario, the serverless transcription engine is ready and the first lab is almost complete. The last thing you need to add is an API to upload the audio file with a unique `GUID` name to your storage account.
-
-For this step you will create an `Azure Function` with a POST `HTTP Trigger` and a `Blob Output Binding` to upload the file to the storage account. The Blob Output Binding will use a `binding expression` to generate a unique `GUID` name for the file.
-
-<div class="task" data-title="Tasks">
-
-> Make sure to create an Azure Function App resource in the Azure portal (or Az CLI) with:
-> 
-> - The `Linux` Operating System
-> - A plan type set to `Consumption (Serverless)`
-> - The language you are most comfortable with (Python or .NET 7 in our example)
-
-</div>
-
-The naming conventions to use are:
-
-For the Azure function: `func-<environment>-<region>-<application-name>-<owner>-<instance>`
-For the storage account associated to it: `stfunc<environment><region><application-name><owner><instance>`
-
-<div class="tip" data-title="Tips">
-
-> Once the resource is ready in Azure, you can create the Function App locally to ease the development experience on your desktop. The Azure Function Core Tools installed as part of the prerequisites will help you with that.
-> Azure Functions in `consumption` (Serverless) mode will need an associated Storage Account in which store the Function App package.
-> A default one will be created if not specified, but if you want to use an existing storage account to, make sure to use the same region for both the Function App and the Storage Account.
->
-> An Azure Function example solution will be provided below in Python and .NET 7.
->
-> [Azure Functions][azure-function]<br> 
-> [Azure Function Core Tools][azure-function-core-tools]<br> 
-> [Basics of Azure Functions][azure-function-basics]<br> 
-> [HTTP Triggered Azure Function][azure-function-http]<br>
-> [Blob Output Binding][azure-function-blob-output]<br> 
-> [Azure Functions Binding Expressions][azure-function-bindings-expression]
-
-</div>
-
-<details>
-<summary>📚 Toggle solution</summary>
-
-The solutions in different languages are provided below, if necessary the source code with the solutions can be found in this Github Repository, under `./src/solutions/<Preferred_Language>`.
-
-<details>
-<summary>🧑‍💻 Manual Setup</summary>
-
-#### Preparation
-
-You need to create a storage account dedicated to your Azure Function in order not to mix the audios files' storage and the Azure Function requirements.
-
-```bash
-
-# Create an Azure storage account dedicated to the Azure Function App.
-az storage account create --name <function-storage-account-name> \
-                          --location <region>  \
-                          --resource-group <resource-group> \
-                          --sku Standard_LRS
-```
-
-You will then need to create a Function App with the dotnet runtime:
-
-```bash
-# Create a serverless function app in the resource group.
-az functionapp create --name <function-name> \
-                      --storage-account <function-storage-account-name> \
-                      --consumption-plan-location <region> \
-                      --runtime dotnet-isolated \
-                      --runtime-version 7 \
-                      --os-type Linux \
-                      --resource-group <resource-group> \
-                      --functions-version 4
-```
-
-Next, you will create a function using the [Azure Function Core Tools][azure-function-core-tools]:
-
-```bash
-# Create a folder for your function app and navigate to it
-mkdir <function-app-name>
-cd <function-app-name>
-
-# Create the new function app as a .NET 7 Isolated project
-# No need to specify a name, the folder name will be used by default
-func init --worker-runtime dotnet-isolated --target-framework net7.0
-
-# Create a new function endpoint with an HTTP trigger to which you'll be able to send the audio file
-func new --name AudioUpload --template 'HTTP Trigger'
-
-# Add a new Nuget package dependency to the Blob storage SDK
-dotnet add package Microsoft.Azure.Functions.Worker.Extensions.Storage.Blobs --version 5.0.0
-
-# Open the new projet inside VS Code
-code .
-
-```
-
-Open the Azure Function App resource in the [Azure Portal][az-portal] and go to the `Configuration` panel. Then update the App Settings with the `STORAGE_ACCOUNT_CONTAINER` to `audios` and get a connection string from the storage account with your audios container and set the `STORAGE_ACCOUNT_CONNECTION_STRING`.
-
-Finally, make sure to set `FILE_UPLOADING_FORMAT` to `binary` in the Static Web App settings as this function implementation expects the audio file contents to be passed directly in the POST request body, without using a form.
-
-</details>
-
-<details>
-<summary> 🐍 Python</summary>
-
-#### Python implementation
-
-In this version of the implementation, you will be using Python. So let's create an Azure Function with the Python runtime.
-
-```bash
-# Create a serverless function app in the resource group.
-az functionapp create --name <function-name> \
-                      --storage-account <function-storage-account-name> \
-                      --consumption-plan-location <region> \
-                      --runtime python \
-                      --os-type Linux \
-                      --resource-group <resource-group> \
-                      --functions-version 4
-```
-
-For the coding part, let's create a function using the [Azure Function Core Tools][azure-function-core-tools], **create a folder** and then run:
-
-```bash
-
-# Create a folder for your function app and navigate to it
-mkdir <function-app-name>
-cd <function-app-name>
-
-# Create the new function app as a python project V1 (a Preview V2 also exists and we'll update the lab once generally available)
-# No need to specify a name, the folder name will be used by default
-func init --worker-runtime python --model V1
-
-# Create a new function endpoint with an HTTP trigger to which you'll be able to send the audio file
-func new --language python --name AudioUpload --template 'HTTP Trigger'
-
-# Open the new projet inside VS Code
-code .
-```
-
-Create a dev environment for the project:
-
-```sh
-python3 -m venv .venv
-```
-
-This will ensure the packages needed for your project are installed only for it.
-
-Then, activate the dev environment:
-
-```sh
-# Linux
-source .venv/bin/activate
-
-# Windows
-.\.venv\Scripts\activate
-```
-
-Install python packages for the project:
-
-```sh
-pip install -r requirements.txt
-```
-
-- Create a `func.py` at the same level of `__init__.py`.
-- Copy all the content of `__init__.py` into `func.py`.
-- Leave the `__init__.py` empty, this is a best practice for Python and the file is mandatory for Python itself to find the other files in the folder.
-
-Update the `function.json` with two environment variables:
-
-- the storage account container : `STORAGE_ACCOUNT_CONTAINER`
-- the Storage Account connection string : `STORAGE_ACCOUNT_CONNECTION_STRING`
-
-And don't forget to change the `scriptFile` to use `func.py`:
-
-```json
-{
-  "scriptFile": "func.py",
-  "bindings": [
-    {
-      "authLevel": "function",
-      "type": "httpTrigger",
-      "direction": "in",
-      "name": "req",
-      "methods": ["post"]
-    },
-    {
-      "type": "http",
-      "direction": "out",
-      "name": "$return"
-    },
-    {
-      "name": "outputblob",
-      "type": "blob",
-      "path": "%STORAGE_ACCOUNT_CONTAINER%/{rand-guid}.wav",
-      "connection": "STORAGE_ACCOUNT_CONNECTION_STRING",
-      "direction": "out"
-    }
-  ]
-}
-```
-
-Open the Azure Function App resource in the [Azure Portal][az-portal] and go to the `Configuration` panel. Then update the App Settings with the `STORAGE_ACCOUNT_CONTAINER` to `audios` and get a connection string from the storage account with your audios container and set the `STORAGE_ACCOUNT_CONNECTION_STRING`.
-
-Update the `func.py` to:
-
-```python
-import logging
-
-import azure.functions as func
-
-def main(req: func.HttpRequest, outputblob: func.Out[bytes]) -> func.HttpResponse:
-    for input_file in req.files.values():
-        filename = input_file.filename
-        contents = input_file.stream.read()
-
-        logging.info('Filename: %s' % filename)
-        outputblob.set(contents)
-
-    return func.HttpResponse(
-        "This HTTP triggered function executed successfully.",
-        status_code=200
-    )
-```
-
-The function will accept POST requests with a file in the body, upload the file to a blob storage, and then return a `200` response to indicate that the request was processed successfully.
-
-</details>
-<details open>
-<summary> 🚀 .NET 7</summary>
-
-#### .NET 7 implementation
-
-In this version of the implementation, you will be using the [.NET 7 Isolated](https://learn.microsoft.com/en-us/azure/azure-functions/dotnet-isolated-in-process-differences) runtime.
-
-Now that you have a skeleton for our `AudioUpload` function in the `AudioUpload.cs` file, you will need to update it to meet the following goals:
-
-- It should read the uploaded file from the body of the POST request
-- It should store the file as a blob inside the blob Storage Account
-- It should respond to user with a status code 200
-
-To upload the file, you will rely on the blob output binding [`BlobOutput`](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-blob-output?tabs=python-v2%2Cin-process&pivots=programming-language-csharp) of the Azure Function, which will take care of the logic of connecting to the Storage Account and uploading the function with minimal line of code in our side.
-
-To do this, let's start by adding a `AudioUploadOutput` class to the `AudioUpload.cs` file for simplicity but it can be done in a specific class.
-
-```csharp
-public class AudioUploadOutput
-{
-    [BlobOutput("%STORAGE_ACCOUNT_CONTAINER%/{rand-guid}.wav", Connection="STORAGE_ACCOUNT_CONNECTION_STRING")]
-    public byte[] Blob { get; set; }
-
-    public HttpResponseData HttpResponse { get; set; }
-}
-```
-
-This class will handle uploading the blob and returning the HTTP response:
-
-- The blob will be stored in the container identified by `STORAGE_ACCOUNT_CONTAINER` which is an environment variable.
-- The blob will be named `{rand-guid}.wav` which resolves to a UUID followed by `.wav`.
-- `STORAGE_ACCOUNT_CONNECTION_STRING` is the name of App setting which contains the connection string that you will use to connect to the blob storage account
-
-Next, you will need to update the class `AudioUpload` to add the logic for reading the file from the request, and then use `AudioUploadOutput` to perform the blob upload and returning the response.
-
-Update the code of the `Run` method in the `AudioUpload` class as follows:
-
-```csharp
-[Function(nameof(AudioUpload))]
-public AudioUploadOutput Run(
-    [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req
-)
-{
-    _logger.LogInformation("C# HTTP trigger function processed a request.");
-
-    // Read the file contents from the request
-    // and store it in the `audioFileData` buffer
-    var audioFileData = default(byte[]);
-    using (var memstream = new MemoryStream())
-    {
-        req.Body.CopyTo(memstream);
-        audioFileData = memstream.ToArray();
-    }
-
-    // Prepare the response to return to the user
-    var response = req.CreateResponse(HttpStatusCode.OK);
-    response.Headers.Add("Content-Type", "text/plain; charset=utf-8");
-    response.WriteString("Uploaded!");
-
-    // Use AudioUploadOutput to return the response and store the blob
-    return new AudioUploadOutput()
-    {
-        Blob = audioFileData,
-        HttpResponse = response
-    };
-}
-```
-
-</details>
-
-#### Deployment and testing
-
-##### Option 1 : Deploy your function with VS Code
-
-- Open the Azure extension in VS Code left panel
-- Make sure you're signed in to your Azure account
-- Open the Function App panel
-- Right-click on your function app and select `Deploy to Function App...`
-
-![Deploy to Function App](assets/function-app-deploy.png)
-
-##### Option 2 : Deploy your function with the Azure Function Core Tools
-
-Deploy your function using the VS Code extension or by command line:
-
-```bash
-func azure functionapp publish 
-func-dev-we-app-me-$INSTANCE
-```
-
-Let's give a try using Postman. Go to the Azure Function and select `Functions` then `AudioUpload` and select the `Get Function Url` with the `default (function key)`. 
-The Azure Function url is protected by a code to ensure a basic security layer. 
-
-![Azure Function url credentials](assets/func-url-credentials.png)
-
-Use this url into your Postman to upload the audio file:
-
-![Postman](assets/func-postman.png)
-
-#### Events Grid Subscription : Fine-grained subject filter
-
-If you look at your Logic App **Run History**, you will see that when you upload a file using the Azure Function endpoint it will trigger the Logic Apps multiple times instead of one. If you open an event received by the Logic App you will have something like the following object:
-
-```json
-[
-  {
-    "topic": "<..>",
-    "subject": "<..>",
-    "eventType": "Microsoft.Storage.BlobCreated",
-    "id": "<..>",
-    "data": {
-      "api": "PutBlob",
-      "blobType": "BlockBlob",
-      "url": "https://stdevweholms01.blob.core.windows.net/audios/whatstheweatherlike.wav",
-      // other values
-    },
-// other values
-  }
-]
-```
-
-The event type: `Microsoft.Storage.BlobCreated` is correct but the value from the `data.api` property will change from `PutBlob` and `PutBlockList`. You are only interested in the `PutBlob` one. So you need to add a filter to it.
-
-The connector inside the Azure Logic App doesn't provide this possibility directly, so you need to do it from the Event Grid System Topic and open the **Filters** tab inside the `Event Subscription` you previously created via the Logic App Trigger.
-
-Select **Add new filter** and fill in as follows :
-
-![Subscription Filtering](assets/event-grid-system-topic-subscription-filtering.png)
-
-</details>
-
-### 🚀 Connect the Web App
-
-It's now time to connect the Azure Function App which stand for a small API to upload your audio file and the Static Web App which is the front end of your application. The API Management (APIM) will be added in a future lab.
-
-<div class="task" data-title="Task">
-
-> - Check the README of the web app project to explore the environment variables supported by the Web App you deployed on Lab 0 and set the value of `FILE_UPLOADING_URL` to the url of the uploaded function which you have created in the previous lab.
-> - If you followed the solutions provided above to create your **AudioUpload** Function endpoint: Set `FILE_UPLOADING_FORMAT` to `binary`, as it will force the frontend to treat the Azure Function endpoint as a binary receiver, rather than a multi-part form receiver.
-
-</div>
-
-<details>
-<summary>📚 Toggle solution</summary>
-
-First, go to the Azure Static Web App resource and inside `Configuration` in the `Application Settings` set the environment variable `FILE_UPLOADING_URL` to the same Azure Function `AudioUpload` endpoint you retrieved earlier in the lab above like `https://<functionapp>.azurewebsites.net/api/audioupload?code=<...>`.
-
-If your function expects a binary as an input then you will also need to set `FILE_UPLOADING_FORMAT` to `binary`
-
-Now if you try to upload a file using the Web App interface you should see a green box in the bottom left corner with a success message.
-
-![Web App](assets/static-web-app-upload-succeeded.png)
-
-</details>
 
 ## Lab 1 : Summary
 
@@ -1490,7 +1062,7 @@ Previously processed transcriptions will be retrieved using HTTP GET requests wh
 
 ![Achitecture scope of Lab 2](assets/architecture-lab2.svg)
 
-## 🚀 Getting transcriptions on-demand (10 min)
+## Getting transcriptions on-demand (10 min)
 
 First, let's create a function which returns the latest 50 transcriptions from Cosmos DB.
 
@@ -1537,9 +1109,6 @@ This function will be used to show all existing transcriptions on the demo Web A
 <details>
 <summary>📚 Toggle solution</summary>
 
-<details>
-<summary> 🧑‍💻 Manual Setup</summary>
-
 Add a new HTTP-triggered function `GetTranscriptions` to your Function App and use the following settings:
 
 | App setting                         | Description                     | Value                |
@@ -1553,75 +1122,7 @@ Go to the Azure Function in your Azure Portal, inside the `Configuration` and `A
 - Add the App settings `COSMOS_DB_DATABASE_NAME` and `COSMOS_DB_CONTAINER_ID` and set their values like defined in the Overview section above 
 - Set value of the connection string `COSMOS_DB_CONNECTION_STRING_SETTING` using the `Keys` section of your Cosmos Db resource on Azure.
 
-</details>
-
-<details>
-<summary> 🐍 Python</summary>
-
-#### Python implementation
-
-`function.json`:
-
-```json
-{
-    "scriptFile": "func.py",
-    "bindings": [
-        {
-            "authLevel": "function",
-            "type": "httpTrigger",
-            "direction": "in",
-            "name": "req",
-            "methods": [
-                "get"
-            ]
-        },
-        {
-            "type": "http",
-            "direction": "out",
-            "name": "$return"
-        },
-        {
-            "name": "transcriptions",
-            "type": "cosmosDB",
-            "direction": "in",
-            "databaseName": "%COSMOS_DB_DATABASE_NAME%",
-            "collectionName": "%COSMOS_DB_CONTAINER_ID%",
-            "sqlQuery": "SELECT * FROM c ORDER BY c._ts DESC OFFSET 0 LIMIT 50",
-            "connectionStringSetting": "COSMOS_DB_CONNECTION_STRING_SETTING"
-        }
-    ]
-}
-```
-
-The `connectionStringSetting` property of triggers and bindings is a special case and automatically resolves values as app settings, without percent signs like the `databaseName` and `collectionName` use.
-
-`func.py`:
-
-```python
-import json
-import azure.functions as func
-
-def main(req: func.HttpRequest, transcriptions: func.DocumentList) -> func.HttpResponse:
-    return func.HttpResponse(
-        json.dumps(transcriptions.data, default=dict),
-        status_code=200,
-        mimetype='application/json'
-    )
-```
-
-Now, go to the Azure Function in your Azure Portal, inside the `Configuration` and `Application settings` add the 3 new settings values based on the Lab 1:
-
-- Add the App settings `COSMOS_DB_DATABASE_NAME` and `COSMOS_DB_CONTAINER_ID` and set their values like defined in the Overview section above 
-- Set value of the connection string `COSMOS_DB_CONNECTION_STRING_SETTING` using the `Keys` section of your Cosmos Db resource on Azure.
-
-Don't forget to add an empty `__init__.py` for Python discovery mecanism.
-
-</details>
-
-<details open>
-<summary> 🚀 .NET 7 </summary>
-
-#### .NET 7 implementation
+#### .NET 8 implementation
 
 First of all, let's define a class for transcriptions as described in the task details.
 
@@ -1719,45 +1220,9 @@ The flow will be the following:
 - The function will create a new notification in an [Azure Web PubSub hub][azure-web-pubsub-hub]. New transcription will fill in the content of the notification.
 - The demo Web App will be listening to new messages on the same Web PubSub hub and will show new transcriptions on real-time.
 
-### Using Azure Web PubSub for real-time communication
+### Publishing new transcriptions using Web PubSub for real-time communication
 
-<div class="task" data-title="Task">
-
-> Create an instance of Azure Web PubSub:
->
-> - SKU: `Free`
-> - Web PubSub naming convention: `wps<environment><region><application-name><owner><instance>` do not put dashes on this resource, otherwise you will have an error later on the lab with the Azure Function.
-
-</div>
-
-<div class="tip" data-title="Resources">
-
-> [Azure Web PubSub Overview][azure-web-pubsub]<br> 
-> [How to create a Web PubSub instance][create-web-pubsub-instance]
-
-</div>
-
-<details>
-<summary>📚 Toggle solution</summary>
-
-```sh
-# Create a Web PubSub instance
-# Replace the following settings with your own:
-# - <resource-group> : name of your resource group
-# - westeurope : you can use a different location if you want to deploy the web app somewhere else
-
-az webpubsub create \
-    --name <unique-web-pubsub-instance-name> \
-    --resource-group <resource-group> \
-    --location "westeurope" \
-    --sku Free_F1
-```
-
-</details>
-
-### 🚀 Publishing new transcriptions using Web PubSub
-
-The next step is to use the newly created Web PubSub instance (`wps<environment><region><application-name><owner><instance>`) to publish new transcriptions as they get added to Cosmos DB.
+The next step is to use the Web PubSub instance to publish new transcriptions as they get added to Cosmos DB.
 
 <div class="task" data-title="Task">
 
@@ -1780,9 +1245,6 @@ The next step is to use the newly created Web PubSub instance (`wps<environment>
 <details>
 <summary>📚 Toggle solution </summary>
 
-<details>
-<summary>🧑‍💻 Manual Setup</summary>
-
 Add a new Cosmos DB-triggered function `CosmosToWebPubSub` to your Function App and use the following settings:
 
 | App setting                         | Description                           |
@@ -1795,68 +1257,7 @@ You need to update the App settings of the Function App by adding the 2 new sett
 - Set `WEB_PUBSUB_HUB_ID` with the name of the Web PubSub resource
 - Set `WEB_PUBSUB_CONNECTION_STRING` with the primary connection string in the `Keys` section of your Web PubSub resource on Azure.
 
-</details>
-
-<details>
-<summary> 🐍 Python</summary>
-
-#### Python implementation
-
-`function.json`:
-
-```json
-{
-    "scriptFile": "func.py",
-    "bindings": [
-        {
-            "type": "cosmosDBTrigger",
-            "name": "transcriptions",
-            "direction": "in",
-            "leaseCollectionName": "leases",
-            "connectionStringSetting": "COSMOS_DB_CONNECTION_STRING_SETTING",
-            "databaseName": "%COSMOS_DB_DATABASE_NAME%",
-            "collectionName": "%COSMOS_DB_CONTAINER_ID%",
-            "createLeaseCollectionIfNotExists": true
-        },
-        {
-            "type": "webPubSub",
-            "name": "actions",
-            "hub": "%WEB_PUBSUB_HUB_ID%",
-            "connection": "WEB_PUBSUB_CONNECTION_STRING",
-            "direction": "out"
-        }
-    ]
-}
-```
-
-`func.py`:
-
-```python
-import logging
-import json
-import azure.functions as func
-
-def main(transcriptions: func.DocumentList, actions: func.Out[str]) -> None:
-    if transcriptions:
-        logging.info('Document Id: %s', transcriptions[0]['id'])
-
-        actions.set(json.dumps({
-            'actionName': 'sendToAll',
-            'data': json.dumps(dict(transcriptions[0])),
-            'dataType': 'json'
-        }))
-```
-
-Don't forget to add an empty `__init__.py` for Python discovery mechanism.
-
-As you have probably already noticed the `connectionStringSetting`, `databaseName` and `collectionName` are populated with the same key as the previous Function. And because you deploy all your Functions in the same Azure Function from an infrastructure point of view, they are already shared accross the `Application settings`.
-
-</details>
-
-<details open>
-<summary>🚀 .NET 7</summary>
-
-#### .NET 7 implementation
+#### .NET 8 implementation
 
 Let's create a Cosmos DB triggered function using the template `CosmosDBTrigger` and use the `WebPubSub` extension to send notifications to the `Web PubSub` hub using the `WebPubSubOutput` output binding.
 
@@ -1913,9 +1314,7 @@ Notice the use of the 2 bindings to simplify the interaction with other services
 
 </details>
 
-</details>
-
-### 🚀 Consuming new transcriptions from Web PubSub
+### Consuming new transcriptions from Web PubSub
 
 The last step is to consume the newly published transcriptions in the demo Web App from the Web PubSub hub.
 
