@@ -61,42 +61,49 @@ namespace FuncDurable
         }
 
         [Function(nameof(ProcessOrchestration))]
-        public static async Task<List<string>> RunOrchestrator(
+        public static async Task RunOrchestrator(
           [OrchestrationTrigger] TaskOrchestrationContext context, AudioItem audio)
         {
             ILogger logger = context.CreateReplaySafeLogger(nameof(ProcessOrchestration));
             logger.LogInformation("Saying hello.");
 
+            var audioFile = await context.CallActivityAsync<string>(nameof(DownloadAudio), audio);
             var text = await context.CallActivityAsync<string>(nameof(SpeechToText), audio);
-            // await context.CallActivityAsync<string>(nameof(SaveDataToCosmosDB));
-
-            return ["Hello Tokyo!", "Hello Seattle!", "Hello London!"];
-            // return outputs;
+            await context.CallActivityAsync<string>(nameof(SaveDataToCosmosDB), text);
         }
 
-        [Function(nameof(SpeechToText))]
-        public static async Task<string> SpeechToText([ActivityTrigger] AudioItem audio, FunctionContext executionContext)
+        [Function(nameof(DownloadAudio))]
+         public static async Task<string> DownloadAudio([ActivityTrigger] AudioItem audio, FunctionContext executionContext)
         {
             // Download the audio file from the storage account
             ILogger logger = executionContext.GetLogger("SpeechToText");
-            logger.LogInformation($"_____________ AudioItem {audio.Id} is being converted to text.");
 
             var connectionString = Environment.GetEnvironmentVariable("STORAGE_ACCOUNT_CONNECTION_STRING");
             var container = Environment.GetEnvironmentVariable("STORAGE_ACCOUNT_CONTAINER");
             var client = new BlobServiceClient(connectionString);
             var containerClient = client.GetBlobContainerClient(container);
+
             logger.LogInformation($"_____________ ConnectionString {connectionString}");
             logger.LogInformation($"_____________ Container {container}");
             logger.LogInformation($"_____________ Blob to download {audio.Path.Split("/").Last()}");
+
             var blobClient = containerClient.GetBlobClient(audio.Path.Split("/").Last());
 
             var builder = new BlobSasBuilder(BlobSasPermissions.Read, DateTimeOffset.Now.AddMinutes(10));
             var sasUri = blobClient.GenerateSasUri(builder);
             
-
-            HttpClient httpClient1 = new HttpClient();
-            var response = await httpClient1.GetAsync(sasUri);
+            HttpClient httpClient = new HttpClient();
+            var response = await httpClient.GetAsync(sasUri);
             logger.LogInformation($"_____________ Response {response}");
+
+            return "";
+        }
+
+        [Function(nameof(SpeechToText))]
+        public static async Task<string> SpeechToText([ActivityTrigger] string audioPath, FunctionContext executionContext)
+        {
+            // Download the audio file from the storage account
+            ILogger logger = executionContext.GetLogger("SpeechToText");
 
             logger.LogInformation($"_____________ URI: {Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_ENDPOINT")}speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed");
             
