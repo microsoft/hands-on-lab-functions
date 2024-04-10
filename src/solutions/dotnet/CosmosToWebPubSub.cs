@@ -15,30 +15,30 @@ namespace FuncStd
             _logger = loggerFactory.CreateLogger<CosmosToWebPubSub>();
         }
 
-        // [Function("CosmosToWebPubSub")]
-        // [WebPubSubOutput(Hub = "%WEB_PUBSUB_HUB_ID%", Connection = "WEB_PUBSUB_CONNECTION_STRING")]
-        // public SendToAllAction? Run(
-        //     [CosmosDBTrigger(
-        //         databaseName: "%COSMOS_DB_DATABASE_NAME%",
-        //         collectionName: "%COSMOS_DB_CONTAINER_ID%",
-        //         ConnectionStringSetting = "COSMOS_DB_CONNECTION_STRING_SETTING",
-        //         CreateLeaseCollectionIfNotExists = true,
-        //         LeaseCollectionName = "leases")
-        //     ] IReadOnlyList<Transcription> input
-        // )
-        // {
-        //     if (input != null && input.Count > 0)
-        //     {
-        //         _logger.LogInformation("Document Id: " + input[0].id);
+        [Function("CosmosToWebPubSub")]
+        [WebPubSubOutput(Hub = "%WEB_PUBSUB_HUB_ID%", Connection = "WEB_PUBSUB_CONNECTION_STRING")]
+        public SendToAllAction? Run(
+            [CosmosDBTrigger(
+                databaseName: "%COSMOS_DB_DATABASE_NAME%",
+                containerName: "%COSMOS_DB_CONTAINER_ID%",
+                Connection = "COSMOS_DB_CONNECTION_STRING_SETTING",
+                CreateLeaseContainerIfNotExists = true,
+                LeaseContainerName = "leases")
+            ] IReadOnlyList<Transcription> input
+        )
+        {
+            if (input != null && input.Count > 0)
+            {
+                _logger.LogInformation("Document Id: " + input[0].id);
 
-        //         return new SendToAllAction
-        //         {
-        //             Data = BinaryData.FromString(JsonSerializer.Serialize(input[0])),
-        //             DataType = WebPubSubDataType.Json
-        //         };
-        //     }
+                return new SendToAllAction
+                {
+                    Data = BinaryData.FromString(JsonSerializer.Serialize(input[0])),
+                    DataType = WebPubSubDataType.Json
+                };
+            }
 
-        //     return null;
-        // }
+            return null;
+        }
     }
 }
