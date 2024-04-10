@@ -1151,7 +1151,7 @@ Next, you will create the skeleton of the function using the following commands:
 func new --name GetTranscriptions --template "HTTP trigger" --authlevel "function"
 
 # Add the Nuget package of Cosmos DB for Functions
-dotnet add package Microsoft.Azure.Functions.Worker.Extensions.CosmosDB --version 3.0.9
+dotnet add package Microsoft.Azure.Functions.Worker.Extensions.CosmosDB --version 4.8.0
 ```
 
 This will generate a new file `GetTranscriptions.cs` with a `GetTranscriptions` class.
@@ -1266,7 +1266,7 @@ Let's create a Cosmos DB triggered function using the template `CosmosDBTrigger`
 func new --name CosmosToWebPubSub --template "CosmosDBTrigger"
 
 # Use the latest version of the Web PubSub Nuget package (prerelease) to interact with Web PubSub
-dotnet add package Microsoft.Azure.Functions.Worker.Extensions.WebPubSub --version 1.5.0-beta.1
+dotnet add package Microsoft.Azure.Functions.Worker.Extensions.WebPubSub --version 1.7.0-beta.1
 ```
 
 This should create a `CosmosToWebPubSub.cs` file with a function that will trigger whenever you add a new item to a Cosmos DB collection.
