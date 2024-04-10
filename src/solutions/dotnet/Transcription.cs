@@ -1,4 +1,4 @@
-namespace serverless_workshop_functions_dotnet
+namespace FuncStd
 {
     public class Transcription
     {

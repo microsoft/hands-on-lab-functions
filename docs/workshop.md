@@ -345,7 +345,7 @@ func init --worker-runtime dotnet-isolated --target-framework net8.0
 func new --name AudioUpload --template 'HTTP Trigger'
 
 # Add a new Nuget package dependency to the Blob storage SDK
-dotnet add package Microsoft.Azure.Functions.Worker.Extensions.Storage.Blobs --version 5.0.0
+dotnet add package Microsoft.Azure.Functions.Worker.Extensions.Storage.Blobs --version 6.3.0
 
 # Open the new projet inside VS Code
 code .
@@ -448,7 +448,7 @@ The Azure Function url is protected by a code to ensure a basic security layer.
 
 ![Azure Function url credentials](assets/func-url-credentials.png)
 
-Use this url into your Postman to upload the audio file:
+Use this url into your Postman to upload the audio file. Create a POST request and in the row where you set the key to `audios` make sure to select the file option in the hidden dropdown menu to be able to select a file in the value field:
 
 ![Postman](assets/func-postman.png)
 

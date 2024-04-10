@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "serverless_workshop_functions_dotnet": {
+    "FuncStd": {
       "commandName": "Project",
       "commandLineArgs": "--port 7222",
       "launchBrowser": false
