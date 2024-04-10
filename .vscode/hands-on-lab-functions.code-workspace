@@ -8,8 +8,8 @@
 			"name": "Azure Static Web App "
 		},
 		{
-			"path": "../src/solutions/dotnet",
-			"name": "Lab 1 - Dotnet - Az Function (Solution)"
+			"path": "../src/solutions/FuncStd",
+			"name": "Lab 1 - Dotnet - Az Function Standard (Solution)"
 		},
 		{
 			"path": "../docs",
