@@ -508,6 +508,7 @@ This will create a template for Durable Functions. You will need to rename and u
 
 
 TODO: UPDATE the start of the orchestration function to use the BlobTrigger
+TODO: Azurite to test the BlobTrigger
 
 ```csharp
 ```
