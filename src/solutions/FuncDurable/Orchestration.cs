@@ -1,117 +1,228 @@
-using System.Net.Http.Json;
-using Azure.Storage.Blobs;
-using Azure.Storage.Sas;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.DurableTask;
 using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.Logging;
+using Azure.Storage.Blobs;
+using Azure.Storage.Sas;
+using System.Text;
+using System.Text.Json;
 
 namespace FuncDurable
 {
-    public class AudioItem
+    public class AudioFile
     {
         public string Id { get; set; }
         public string Path { get; set; }
+        public string urlWithSasToken { get; set; }
     }
 
-    public static class ProcessOrchestration
+    public class TranscriptionJobFiles
     {
-        [Function(nameof(BlobTriggerFunction))]
-        public static async Task<OrchestrationMetadata?> BlobTriggerFunction(
-                [BlobTrigger("%STORAGE_ACCOUNT_CONTAINER%/{name}", Connection = "STORAGE_ACCOUNT_CONNECTION_STRING")] string input,
-                [DurableClient] DurableTaskClient client,
-                FunctionContext executionContext)
-        {
-            var logger = executionContext.GetLogger(nameof(BlobTriggerFunction));
+        public string files { get; set; }
+    }
+    public class TranscriptionJob
+    {
+        public string self { get; set; }
 
-            logger.LogInformation("========= Blob Storage FUNCTION =========");
+        public string status { get; set; }
 
-            // Function input comes from the request content.
-            string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(
-                nameof(ProcessOrchestration));
+        public TranscriptionJobFiles links { get; set; }
+    }
 
-            logger.LogInformation("Started orchestration with ID = '{instanceId}'.", instanceId);
+    public class TranscriptionResultValueFile
+    {
+        public string contentUrl { get; set; }
+    }
 
-            return await client.GetInstancesAsync(instanceId);
-        }
+    public class TranscriptionResultValue
+    {
+        public string kind { get; set; }
+        public TranscriptionResultValueFile links { get; set; }
+    }
 
-        [Function(nameof(ProcessOrchestration))]
+    public class TranscriptionResult
+    {
+        public TranscriptionResultValue[] values { get; set; }
+
+    }
+
+    public class Transcription
+    {
+        public string display { get; set; }
+
+    }
+
+    public class TranscriptionDetails
+    {
+        public Transcription[] combinedRecognizedPhrases { get; set; }
+
+    }
+
+    public static class AudioTranscriptionOrchestration
+    {
+        [Function(nameof(AudioTranscriptionOrchestration))]
         public static async Task RunOrchestrator(
-          [OrchestrationTrigger] TaskOrchestrationContext context, AudioItem audio)
+            [OrchestrationTrigger] TaskOrchestrationContext context, string audioBlobSasUri)
         {
-            ILogger logger = context.CreateReplaySafeLogger(nameof(ProcessOrchestration));
-            logger.LogInformation("Start orchestration.");
+            ILogger logger = context.CreateReplaySafeLogger(nameof(AudioTranscriptionOrchestration));
+            logger.LogInformation("Processing audio file");
 
-            await context.CallActivityAsync<object>(nameof(SaveDataToCosmosDB), "name");
+            var jobUrl = await context.CallActivityAsync<string>(nameof(StartTranscription), audioBlobSasUri);
+
+            DateTime endTime = context.CurrentUtcDateTime.AddMinutes(2);
+
+            while (context.CurrentUtcDateTime < endTime)
+            {
+                // Check transcription
+                // if (!context.IsReplaying) { logger.LogInformation($"Checking current weather conditions for {input.Location} at {context.CurrentUtcDateTime}."); }
+
+                string? transcription = await context.CallActivityAsync<string?>("GetTranscription", jobUrl);
+                logger.LogInformation($"transcription: {transcription}");
+
+                if (transcription != null)
+                {
+                    // It's not raining! Or snowing. Or misting. Tell our user to take advantage of it.
+                    // if (!context.IsReplaying) { logger.LogInformation($"Detected clear weather for {input.Location}. Notifying {input.Phone}."); }
+
+                    await context.CallActivityAsync("SaveTranscription", transcription);
+                    break;
+                }
+                else
+                {
+                    // Wait for the next checkpoint
+                    var nextCheckpoint = context.CurrentUtcDateTime.AddSeconds(5);
+                    // if (!context.IsReplaying) { logger.LogInformation($"Next check for {input.Location} at {nextCheckpoint}."); }
+
+                    await context.CreateTimer(nextCheckpoint, CancellationToken.None);
+                }
+            }
         }
 
-        [Function(nameof(SaveDataToCosmosDB))]
-        [CosmosDBOutput("%COSMOS_DB_DATABASE_NAME%",
-                        "%COSMOS_DB_CONTAINER_ID%",
-                        Connection = "COSMOS_DB_CONNECTION_STRING_SETTING",
-                        CreateIfNotExists = true)]
-        public static object SaveDataToCosmosDB(
-            [ActivityTrigger] string name,
+        [Function(nameof(StartTranscription))]
+        public static async Task<string> StartTranscription([ActivityTrigger] string audioBlobSasUri, FunctionContext executionContext)
+        {
+            ILogger logger = executionContext.GetLogger(nameof(StartTranscription));
+            logger.LogInformation("StartTranscription {audioBlobSasUri}.", audioBlobSasUri);
+
+            using (HttpClient httpClient = new HttpClient())
+            {
+                var url = $"{Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_ENDPOINT")}/speechtotext/v3.1/transcriptions";
+                var apiKey = Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_API_KEY");
+
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
+
+                using StringContent jsonContent = new(
+                    JsonSerializer.Serialize(new
+                    {
+                        contentUrls = new List<string> { audioBlobSasUri },
+                        locale = "en-US",
+                        displayName = "My Transcription",
+
+                    }),
+                    Encoding.UTF8,
+                    "application/json"
+                );
+
+                httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Ocp-Apim-Subscription-Key", apiKey);
+
+                HttpResponseMessage httpResponse = await httpClient.PostAsync(url, jsonContent);
+                var serializedJob = await httpResponse.Content.ReadAsStringAsync();
+
+                var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob);
+
+                logger.LogInformation($"_____________ job {job.self}");
+
+                return job.self;
+            }
+        }
+
+        
+        [Function(nameof(GetTranscription))]
+        public static async Task<string?> GetTranscription([ActivityTrigger] string jobUrl, FunctionContext executionContext)
+        {
+            ILogger logger = executionContext.GetLogger(nameof(StartTranscription));
+
+            using (HttpClient httpClient = new HttpClient())
+            {
+                var apiKey = Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_API_KEY");
+
+                httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Ocp-Apim-Subscription-Key", apiKey);
+
+                HttpResponseMessage httpResponse = await httpClient.GetAsync(jobUrl);
+                var serializedJob = await httpResponse.Content.ReadAsStringAsync();
+
+                var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob);
+
+                logger.LogInformation($"job status {job.status}");
+
+                if (job.status != "Succeeded")
+                {
+                    return null;
+                }
+
+                var files = job.links.files;
+
+                HttpResponseMessage resultsHttpResponse = await httpClient.GetAsync(files);
+                var serializedJobResults = await resultsHttpResponse.Content.ReadAsStringAsync();
+                var transcriptionResult = JsonSerializer.Deserialize<TranscriptionResult>(serializedJobResults);
+                var transcriptionFileUrl = transcriptionResult?.values.Where(value => value.kind == "Transcription").First().links.contentUrl;
+
+                if (transcriptionFileUrl == null) {
+                    return ""; // TODO: throw error instead of returning an empty string
+                }
+
+                HttpResponseMessage transcriptionDetailsHttpResponse = await httpClient.GetAsync(transcriptionFileUrl);
+                var serializedTranscriptionDetails = await transcriptionDetailsHttpResponse.Content.ReadAsStringAsync();
+                var transcriptionDetails = JsonSerializer.Deserialize<TranscriptionDetails>(serializedTranscriptionDetails);
+                var transcription = transcriptionDetails?.combinedRecognizedPhrases.First().display ?? ""; // TODO: throw error instead of returning an empty string
+
+                logger.LogInformation($"transcription {transcription}");
+
+                return transcription;
+            }
+        }
+
+        // [Function(nameof(SaveDataToCosmosDB))]
+        // [CosmosDBOutput("%COSMOS_DB_DATABASE_NAME%",
+        //                 "%COSMOS_DB_CONTAINER_ID%",
+        //                 Connection = "COSMOS_DB_CONNECTION_STRING_SETTING",
+        //                 CreateIfNotExists = true)]
+        // public static object SaveDataToCosmosDB(
+        //     [ActivityTrigger] string name,
+        //     FunctionContext executionContext)
+        // {
+        //     ILogger logger = executionContext.GetLogger("SaveDataToCosmosDB");
+        //     logger.LogInformation("Saying hello SaveDataToCosmosDB.");
+
+        //     return new { Id = Guid.NewGuid(), Path = "/file/path" };
+        // }
+
+        [Function(nameof(SaveTranscription))]
+        public static string SaveTranscription([ActivityTrigger] string transcription, FunctionContext executionContext)
+        {
+            // TODO
+            ILogger logger = executionContext.GetLogger(nameof(SaveTranscription));
+            logger.LogInformation("SaveTranscription");
+            return $"Hello {transcription}!";
+        }
+
+
+        [Function(nameof(AudioBlobUploadStart))]
+        public static async Task AudioBlobUploadStart(
+            [BlobTrigger("%STORAGE_ACCOUNT_CONTAINER%/{name}", Connection="STORAGE_ACCOUNT_CONNECTION_STRING")] BlobClient blobClient,
+            [DurableClient] DurableTaskClient client,
             FunctionContext executionContext)
         {
-            ILogger logger = executionContext.GetLogger("SaveDataToCosmosDB");
-            logger.LogInformation("Saying hello SaveDataToCosmosDB.");
+            ILogger logger = executionContext.GetLogger("AudioBlobUploadStart");
 
-            return new { Id = Guid.NewGuid(), Path = "/file/path" };
+            var blobSasBuilder = new BlobSasBuilder(BlobSasPermissions.Read, DateTimeOffset.Now.AddMinutes(10));
+            var audioBlobSasUri = blobClient.GenerateSasUri(blobSasBuilder);
+
+            // TODO: pass a AudioFile instance to the orchestration function instead of just the blob sas uri
+
+            string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(nameof(AudioTranscriptionOrchestration), audioBlobSasUri);
+
+            logger.LogInformation("Started orchestration with ID = '{instanceId}'.", instanceId);
         }
-
-        // [Function(nameof(DownloadAudio))]
-        //  public static async Task<string> DownloadAudio([ActivityTrigger] AudioItem audio, FunctionContext executionContext)
-        // {
-        //     // Download the audio file from the storage account
-        //     ILogger logger = executionContext.GetLogger("SpeechToText");
-
-        //     var connectionString = Environment.GetEnvironmentVariable("STORAGE_ACCOUNT_CONNECTION_STRING");
-        //     var container = Environment.GetEnvironmentVariable("STORAGE_ACCOUNT_CONTAINER");
-        //     var client = new BlobServiceClient(connectionString);
-        //     var containerClient = client.GetBlobContainerClient(container);
-
-        //     logger.LogInformation($"_____________ ConnectionString {connectionString}");
-        //     logger.LogInformation($"_____________ Container {container}");
-        //     logger.LogInformation($"_____________ Blob to download {audio.Path.Split("/").Last()}");
-
-        //     var blobClient = containerClient.GetBlobClient(audio.Path.Split("/").Last());
-
-        //     var builder = new BlobSasBuilder(BlobSasPermissions.Read, DateTimeOffset.Now.AddMinutes(10));
-        //     var sasUri = blobClient.GenerateSasUri(builder);
-
-        //     HttpClient httpClient = new HttpClient();
-        //     var response = await httpClient.GetAsync(sasUri);
-        //     logger.LogInformation($"_____________ Response {response}");
-
-        //     return "";
-        // }
-
-        // [Function(nameof(SpeechToText))]
-        // public static async Task<string> SpeechToText([ActivityTrigger] string audioPath, FunctionContext executionContext)
-        // {
-        //     // Download the audio file from the storage account
-        //     ILogger logger = executionContext.GetLogger("SpeechToText");
-
-        //     logger.LogInformation($"_____________ URI: {Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_ENDPOINT")}speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed");
-
-        //     // Send the audio file to the Speech to Text API
-        //     using (HttpClient httpClient = new HttpClient())
-        //     {
-        //         var url = $"{Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_ENDPOINT")}speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed";
-        //         HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
-
-        //         request.Headers.Add("Accept", "application/json");
-        //         request.Headers.Add("Content-Type", "audio/wav");
-        //         request.Headers.Add("Ocp-Apim-Subscription-Key", Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_API_KEY"));
-
-        //         HttpResponseMessage httpResponse = await httpClient.SendAsync(request);
-        //         logger.LogInformation($"_____________ Result Audio {httpResponse.Content}");
-        //     }
-
-        //     return "Audio text {audio.Id} is ready.";
-        // }
-
     }
 }
