@@ -9,7 +9,11 @@
 		},
 		{
 			"path": "../src/solutions/FuncStd",
-			"name": "Lab 1 - Dotnet - Az Function Standard (Solution)"
+			"name": "Az Function Standard (Solution)"
+		},
+		{
+			"path": "../src/solutions/FuncDurable",
+			"name": "Az Function Durable (Solution)"
 		},
 		{
 			"path": "../docs",

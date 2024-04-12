@@ -13,53 +13,71 @@ namespace FuncDurable
     {
         public string Id { get; set; }
         public string Path { get; set; }
-        public string urlWithSasToken { get; set; }
+        public string UrlWithSasToken { get; set; }
     }
 
     public class TranscriptionJobFiles
     {
-        public string files { get; set; }
+        public string Files { get; set; }
     }
     public class TranscriptionJob
     {
-        public string self { get; set; }
+        public string Self { get; set; }
 
-        public string status { get; set; }
+        public string Status { get; set; }
 
-        public TranscriptionJobFiles links { get; set; }
+        public TranscriptionJobFiles Links { get; set; }
     }
 
     public class TranscriptionResultValueFile
     {
-        public string contentUrl { get; set; }
+        public string ContentUrl { get; set; }
     }
 
     public class TranscriptionResultValue
     {
-        public string kind { get; set; }
-        public TranscriptionResultValueFile links { get; set; }
+        public string Kind { get; set; }
+        public TranscriptionResultValueFile Links { get; set; }
     }
 
     public class TranscriptionResult
     {
-        public TranscriptionResultValue[] values { get; set; }
+        public TranscriptionResultValue[] Values { get; set; }
 
     }
 
     public class Transcription
     {
-        public string display { get; set; }
+        public string Display { get; set; }
 
     }
 
     public class TranscriptionDetails
     {
-        public Transcription[] combinedRecognizedPhrases { get; set; }
+        public Transcription[] CombinedRecognizedPhrases { get; set; }
 
     }
 
     public static class AudioTranscriptionOrchestration
     {
+        [Function(nameof(AudioBlobUploadStart))]
+        public static async Task AudioBlobUploadStart(
+                [BlobTrigger("%STORAGE_ACCOUNT_CONTAINER%/{name}", Connection = "STORAGE_ACCOUNT_CONNECTION_STRING")] BlobClient blobClient,
+                [DurableClient] DurableTaskClient client,
+                FunctionContext executionContext)
+        {
+            ILogger logger = executionContext.GetLogger("AudioBlobUploadStart");
+
+            var blobSasBuilder = new BlobSasBuilder(BlobSasPermissions.Read, DateTimeOffset.Now.AddMinutes(10));
+            var audioBlobSasUri = blobClient.GenerateSasUri(blobSasBuilder);
+
+            // TODO: pass a AudioFile instance to the orchestration function instead of just the blob sas uri
+
+            string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(nameof(AudioTranscriptionOrchestration), audioBlobSasUri);
+
+            logger.LogInformation("Started orchestration with ID = '{instanceId}'.", instanceId);
+        }
+
         [Function(nameof(AudioTranscriptionOrchestration))]
         public static async Task RunOrchestrator(
             [OrchestrationTrigger] TaskOrchestrationContext context, string audioBlobSasUri)
@@ -76,7 +94,7 @@ namespace FuncDurable
                 // Check transcription
                 // if (!context.IsReplaying) { logger.LogInformation($"Checking current weather conditions for {input.Location} at {context.CurrentUtcDateTime}."); }
 
-                string? transcription = await context.CallActivityAsync<string?>("GetTranscription", jobUrl);
+                string? transcription = await context.CallActivityAsync<string?>(nameof(GetTranscription), jobUrl);
                 logger.LogInformation($"transcription: {transcription}");
 
                 if (transcription != null)
@@ -84,7 +102,7 @@ namespace FuncDurable
                     // It's not raining! Or snowing. Or misting. Tell our user to take advantage of it.
                     // if (!context.IsReplaying) { logger.LogInformation($"Detected clear weather for {input.Location}. Notifying {input.Phone}."); }
 
-                    await context.CallActivityAsync("SaveTranscription", transcription);
+                    await context.CallActivityAsync(nameof(SaveTranscription), transcription);
                     break;
                 }
                 else
@@ -106,7 +124,7 @@ namespace FuncDurable
 
             using (HttpClient httpClient = new HttpClient())
             {
-                var url = $"{Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_ENDPOINT")}/speechtotext/v3.1/transcriptions";
+                var url = $"{Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_ENDPOINT")}speechtotext/v3.1/transcriptions";
                 var apiKey = Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_API_KEY");
 
                 HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -128,15 +146,20 @@ namespace FuncDurable
                 HttpResponseMessage httpResponse = await httpClient.PostAsync(url, jsonContent);
                 var serializedJob = await httpResponse.Content.ReadAsStringAsync();
 
-                var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
 
-                logger.LogInformation($"_____________ job {job.self}");
+                var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob, options);
 
-                return job.self;
+                logger.LogInformation($"_____________ job {job?.Self}");
+
+                return job.Self;
             }
         }
 
-        
+
         [Function(nameof(GetTranscription))]
         public static async Task<string?> GetTranscription([ActivityTrigger] string jobUrl, FunctionContext executionContext)
         {
@@ -151,30 +174,36 @@ namespace FuncDurable
                 HttpResponseMessage httpResponse = await httpClient.GetAsync(jobUrl);
                 var serializedJob = await httpResponse.Content.ReadAsStringAsync();
 
-                var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
 
-                logger.LogInformation($"job status {job.status}");
+                var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob, options);
 
-                if (job.status != "Succeeded")
+                logger.LogInformation($"job status {job?.Status}");
+
+                if (job != null && job.Status != "Succeeded")
                 {
                     return null;
                 }
 
-                var files = job.links.files;
+                var files = job?.Links.Files;
 
                 HttpResponseMessage resultsHttpResponse = await httpClient.GetAsync(files);
                 var serializedJobResults = await resultsHttpResponse.Content.ReadAsStringAsync();
-                var transcriptionResult = JsonSerializer.Deserialize<TranscriptionResult>(serializedJobResults);
-                var transcriptionFileUrl = transcriptionResult?.values.Where(value => value.kind == "Transcription").First().links.contentUrl;
+                var transcriptionResult = JsonSerializer.Deserialize<TranscriptionResult>(serializedJobResults, options);
+                var transcriptionFileUrl = transcriptionResult?.Values.Where(value => value.Kind == "Transcription").First().Links.ContentUrl;
 
-                if (transcriptionFileUrl == null) {
+                if (transcriptionFileUrl == null)
+                {
                     return ""; // TODO: throw error instead of returning an empty string
                 }
 
                 HttpResponseMessage transcriptionDetailsHttpResponse = await httpClient.GetAsync(transcriptionFileUrl);
                 var serializedTranscriptionDetails = await transcriptionDetailsHttpResponse.Content.ReadAsStringAsync();
-                var transcriptionDetails = JsonSerializer.Deserialize<TranscriptionDetails>(serializedTranscriptionDetails);
-                var transcription = transcriptionDetails?.combinedRecognizedPhrases.First().display ?? ""; // TODO: throw error instead of returning an empty string
+                var transcriptionDetails = JsonSerializer.Deserialize<TranscriptionDetails>(serializedTranscriptionDetails, options);
+                var transcription = transcriptionDetails?.CombinedRecognizedPhrases.First().Display ?? ""; // TODO: throw error instead of returning an empty string
 
                 logger.LogInformation($"transcription {transcription}");
 
@@ -202,27 +231,11 @@ namespace FuncDurable
         {
             // TODO
             ILogger logger = executionContext.GetLogger(nameof(SaveTranscription));
-            logger.LogInformation("SaveTranscription");
+            logger.LogInformation(nameof(SaveTranscription));
             return $"Hello {transcription}!";
         }
 
 
-        [Function(nameof(AudioBlobUploadStart))]
-        public static async Task AudioBlobUploadStart(
-            [BlobTrigger("%STORAGE_ACCOUNT_CONTAINER%/{name}", Connection="STORAGE_ACCOUNT_CONNECTION_STRING")] BlobClient blobClient,
-            [DurableClient] DurableTaskClient client,
-            FunctionContext executionContext)
-        {
-            ILogger logger = executionContext.GetLogger("AudioBlobUploadStart");
 
-            var blobSasBuilder = new BlobSasBuilder(BlobSasPermissions.Read, DateTimeOffset.Now.AddMinutes(10));
-            var audioBlobSasUri = blobClient.GenerateSasUri(blobSasBuilder);
-
-            // TODO: pass a AudioFile instance to the orchestration function instead of just the blob sas uri
-
-            string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(nameof(AudioTranscriptionOrchestration), audioBlobSasUri);
-
-            logger.LogInformation("Started orchestration with ID = '{instanceId}'.", instanceId);
-        }
     }
 }
