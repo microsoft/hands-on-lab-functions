@@ -4,9 +4,6 @@ using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.Logging;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
-using System.Text;
-using System.Text.Json;
-using Microsoft.Azure.Cosmos.Serialization.HybridRow.Schemas;
 
 namespace FuncDurable
 {
@@ -18,7 +15,7 @@ namespace FuncDurable
                 [DurableClient] DurableTaskClient client,
                 FunctionContext executionContext)
         {
-            ILogger logger = executionContext.GetLogger("AudioBlobUploadStart");
+            ILogger logger = executionContext.GetLogger(nameof(AudioBlobUploadStart));
 
             var blobSasBuilder = new BlobSasBuilder(BlobSasPermissions.Read, DateTimeOffset.Now.AddMinutes(10));
             var audioBlobSasUri = blobClient.GenerateSasUri(blobSasBuilder);
@@ -27,7 +24,7 @@ namespace FuncDurable
             {
                 Id = Guid.NewGuid().ToString(),
                 Path = blobClient.Uri.ToString(),
-                UrlWithSasToken = audioBlobSasUri
+                UrlWithSasToken = audioBlobSasUri.AbsoluteUri
             };
 
             string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(nameof(AudioTranscriptionOrchestration), audioFile);
@@ -41,38 +38,49 @@ namespace FuncDurable
             AudioFile audioFile)
         {
             ILogger logger = context.CreateReplaySafeLogger(nameof(AudioTranscriptionOrchestration));
-            logger.LogInformation("Processing audio file");
+            if (!context.IsReplaying) { logger.LogInformation($"Processing audio file {audioFile.Id}"); }
 
-            var jobUrl = await context.CallActivityAsync<string>(nameof(StartTranscription), audioFile.UrlWithSasToken);
+            // Step1: Start transcription
+            var jobUri = await context.CallActivityAsync<string>(nameof(StartTranscription), audioFile);
+            audioFile.JobUri = jobUri;
 
             DateTime endTime = context.CurrentUtcDateTime.AddMinutes(2);
 
             while (context.CurrentUtcDateTime < endTime)
             {
-                // Check transcription
-                // if (!context.IsReplaying) { logger.LogInformation($"Checking current weather conditions for {input.Location} at {context.CurrentUtcDateTime}."); }
+                // Step2: Check if transcription is done
+                var status = await context.CallActivityAsync<string>(nameof(CheckTranscriptionStatus), audioFile);
+                if (!context.IsReplaying) { logger.LogInformation($"Status of the transcription of {audioFile.Id}: {status}"); }
 
-                string? transcription = await context.CallActivityAsync<string?>(nameof(GetTranscription), jobUrl);
-                logger.LogInformation($"transcription: {transcription}");
-
-                if (transcription != null)
+                if (status == "Succeeded" || status == "Failed")
                 {
-                    // It's not raining! Or snowing. Or misting. Tell our user to take advantage of it.
-                    // if (!context.IsReplaying) { logger.LogInformation($"Detected clear weather for {input.Location}. Notifying {input.Phone}."); }
+                    // Step3: Get transcription
+                    string transcription = await context.CallActivityAsync<string>(nameof(GetTranscription), audioFile);
+
+                    if (!context.IsReplaying) { logger.LogInformation($"Retrieved transcription of {audioFile.Id}: {transcription}"); }
+
                     var audioTranscription = new AudioTranscription
                     {
                         Id = audioFile.Id,
                         Path = audioFile.Path,
-                        Transcription = transcription
+                        Result = transcription,
+                        Status = status
                     };
+
+                    if (!context.IsReplaying) { logger.LogInformation($"Saving transcription of {audioFile.Id} to Cosmos DB"); }
+
+                    // Step4: Save transcription
                     await context.CallActivityAsync(nameof(SaveTranscription), audioTranscription);
+
+                    if (!context.IsReplaying) { logger.LogInformation($"Finished processing of {audioFile.Id}"); }
+
                     break;
                 }
                 else
                 {
                     // Wait for the next checkpoint
                     var nextCheckpoint = context.CurrentUtcDateTime.AddSeconds(5);
-                    // if (!context.IsReplaying) { logger.LogInformation($"Next check for {input.Location} at {nextCheckpoint}."); }
+                    if (!context.IsReplaying) { logger.LogInformation($"Next check for {audioFile.Id} at {nextCheckpoint}."); }
 
                     await context.CreateTimer(nextCheckpoint, CancellationToken.None);
                 }
@@ -80,103 +88,36 @@ namespace FuncDurable
         }
 
         [Function(nameof(StartTranscription))]
-        public static async Task<string> StartTranscription([ActivityTrigger] string audioBlobSasUri, FunctionContext executionContext)
+        public static async Task<string> StartTranscription([ActivityTrigger] AudioFile audioFile, FunctionContext executionContext)
         {
             ILogger logger = executionContext.GetLogger(nameof(StartTranscription));
-            logger.LogInformation("StartTranscription {audioBlobSasUri}.", audioBlobSasUri);
+            logger.LogInformation($"Starting transcription of {audioFile.Id}");
 
-            using (HttpClient httpClient = new HttpClient())
-            {
-                var url = $"{Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_ENDPOINT")}speechtotext/v3.1/transcriptions";
-                var apiKey = Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_API_KEY");
+            var jobUri = await SpeechToTextService.CreateBatchTranscription(audioFile.UrlWithSasToken, audioFile.Id);
 
-                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
+            logger.LogInformation($"Job uri for {audioFile.Id}: {jobUri}");
 
-                using StringContent jsonContent = new(
-                    JsonSerializer.Serialize(new
-                    {
-                        contentUrls = new List<string> { audioBlobSasUri },
-                        locale = "en-US",
-                        displayName = "My Transcription",
-
-                    }),
-                    Encoding.UTF8,
-                    "application/json"
-                );
-
-                httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Ocp-Apim-Subscription-Key", apiKey);
-
-                HttpResponseMessage httpResponse = await httpClient.PostAsync(url, jsonContent);
-                var serializedJob = await httpResponse.Content.ReadAsStringAsync();
-
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-
-                var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob, options);
-
-                logger.LogInformation($"_____________ job {job?.Self}");
-
-                return job.Self;
-            }
+            return jobUri;
         }
 
 
-        [Function(nameof(GetTranscription))]
-        public static async Task<string?> GetTranscription([ActivityTrigger] string jobUrl, FunctionContext executionContext)
+        [Function(nameof(CheckTranscriptionStatus))]
+        public static async Task<string> CheckTranscriptionStatus([ActivityTrigger] AudioFile audioFile, FunctionContext executionContext)
         {
-            ILogger logger = executionContext.GetLogger(nameof(StartTranscription));
+            ILogger logger = executionContext.GetLogger(nameof(CheckTranscriptionStatus));
+            logger.LogInformation($"Checking the transcription status of {audioFile.Id}");
+            var status = await SpeechToTextService.CheckBatchTranscriptionStatus(audioFile.JobUri!);
+            return status;
+        }
 
-            using (HttpClient httpClient = new HttpClient())
-            {
-                var apiKey = Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_API_KEY");
-
-                httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Ocp-Apim-Subscription-Key", apiKey);
-
-                HttpResponseMessage httpResponse = await httpClient.GetAsync(jobUrl);
-                var serializedJob = await httpResponse.Content.ReadAsStringAsync();
-
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-
-                var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob, options);
-
-                logger.LogInformation($"job status {job?.Status}");
-
-                if (job != null && job.Status != "Succeeded")
-                {
-                    return null;
-                }
-
-                var files = job?.Links.Files;
-
-                HttpResponseMessage resultsHttpResponse = await httpClient.GetAsync(files);
-                var serializedJobResults = await resultsHttpResponse.Content.ReadAsStringAsync();
-                var transcriptionResult = JsonSerializer.Deserialize<TranscriptionResult>(serializedJobResults, options);
-                var transcriptionFileUrl = transcriptionResult?.Values.Where(value => value.Kind == "Transcription").First().Links.ContentUrl;
-
-                if (transcriptionFileUrl == null)
-                {
-                    throw new Exception("Transcription file url not found");
-                }
-
-                HttpResponseMessage transcriptionDetailsHttpResponse = await httpClient.GetAsync(transcriptionFileUrl);
-                var serializedTranscriptionDetails = await transcriptionDetailsHttpResponse.Content.ReadAsStringAsync();
-                var transcriptionDetails = JsonSerializer.Deserialize<TranscriptionDetails>(serializedTranscriptionDetails, options);
-                var transcription = transcriptionDetails?.CombinedRecognizedPhrases.First().Display;
-
-                if (transcription == null)
-                {
-                    throw new Exception("Transcription result not found");
-                }
-
-                logger.LogInformation($"transcription {transcription}");
-
-                return transcription;
-            }
+        
+        [Function(nameof(GetTranscription))]
+        public static async Task<string?> GetTranscription([ActivityTrigger] AudioFile audioFile, FunctionContext executionContext)
+        {
+            ILogger logger = executionContext.GetLogger(nameof(GetTranscription));
+            var transcription = await SpeechToTextService.GetTranscription(audioFile.JobUri!);
+            logger.LogInformation($"Transcription of {audioFile.Id}: {transcription}");
+            return transcription;
         }
 
         [Function(nameof(SaveTranscription))]

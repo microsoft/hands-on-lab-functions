@@ -14,12 +14,18 @@ namespace FuncDurable
     public class AudioFile : Audio
     {
         [JsonPropertyName("urlWithSasToken")]
-        public Uri UrlWithSasToken { get; set; }
+        public string UrlWithSasToken { get; set; }
+
+        [JsonPropertyName("jobUri")]
+        public string? JobUri { get; set; }
     }
 
     public class AudioTranscription : Audio
     {
-        [JsonPropertyName("transcription")]
-        public string Transcription { get; set; }
+        [JsonPropertyName("result")]
+        public string Result { get; set; }
+
+        [JsonPropertyName("status")]
+        public string Status { get; set; }
     }
 }
