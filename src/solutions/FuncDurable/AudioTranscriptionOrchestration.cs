@@ -6,58 +6,10 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Azure.Cosmos.Serialization.HybridRow.Schemas;
 
 namespace FuncDurable
 {
-    public class AudioFile
-    {
-        public string Id { get; set; }
-        public string Path { get; set; }
-        public string UrlWithSasToken { get; set; }
-    }
-
-    public class TranscriptionJobFiles
-    {
-        public string Files { get; set; }
-    }
-    public class TranscriptionJob
-    {
-        public string Self { get; set; }
-
-        public string Status { get; set; }
-
-        public TranscriptionJobFiles Links { get; set; }
-    }
-
-    public class TranscriptionResultValueFile
-    {
-        public string ContentUrl { get; set; }
-    }
-
-    public class TranscriptionResultValue
-    {
-        public string Kind { get; set; }
-        public TranscriptionResultValueFile Links { get; set; }
-    }
-
-    public class TranscriptionResult
-    {
-        public TranscriptionResultValue[] Values { get; set; }
-
-    }
-
-    public class Transcription
-    {
-        public string Display { get; set; }
-
-    }
-
-    public class TranscriptionDetails
-    {
-        public Transcription[] CombinedRecognizedPhrases { get; set; }
-
-    }
-
     public static class AudioTranscriptionOrchestration
     {
         [Function(nameof(AudioBlobUploadStart))]
@@ -71,21 +23,27 @@ namespace FuncDurable
             var blobSasBuilder = new BlobSasBuilder(BlobSasPermissions.Read, DateTimeOffset.Now.AddMinutes(10));
             var audioBlobSasUri = blobClient.GenerateSasUri(blobSasBuilder);
 
-            // TODO: pass a AudioFile instance to the orchestration function instead of just the blob sas uri
+            var audioFile = new AudioFile
+            {
+                Id = Guid.NewGuid().ToString(),
+                Path = blobClient.Uri.ToString(),
+                UrlWithSasToken = audioBlobSasUri
+            };
 
-            string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(nameof(AudioTranscriptionOrchestration), audioBlobSasUri);
+            string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(nameof(AudioTranscriptionOrchestration), audioFile);
 
             logger.LogInformation("Started orchestration with ID = '{instanceId}'.", instanceId);
         }
 
         [Function(nameof(AudioTranscriptionOrchestration))]
         public static async Task RunOrchestrator(
-            [OrchestrationTrigger] TaskOrchestrationContext context, string audioBlobSasUri)
+            [OrchestrationTrigger] TaskOrchestrationContext context, 
+            AudioFile audioFile)
         {
             ILogger logger = context.CreateReplaySafeLogger(nameof(AudioTranscriptionOrchestration));
             logger.LogInformation("Processing audio file");
 
-            var jobUrl = await context.CallActivityAsync<string>(nameof(StartTranscription), audioBlobSasUri);
+            var jobUrl = await context.CallActivityAsync<string>(nameof(StartTranscription), audioFile.UrlWithSasToken);
 
             DateTime endTime = context.CurrentUtcDateTime.AddMinutes(2);
 
@@ -101,8 +59,13 @@ namespace FuncDurable
                 {
                     // It's not raining! Or snowing. Or misting. Tell our user to take advantage of it.
                     // if (!context.IsReplaying) { logger.LogInformation($"Detected clear weather for {input.Location}. Notifying {input.Phone}."); }
-
-                    await context.CallActivityAsync(nameof(SaveTranscription), transcription);
+                    var audioTranscription = new AudioTranscription
+                    {
+                        Id = audioFile.Id,
+                        Path = audioFile.Path,
+                        Transcription = transcription
+                    };
+                    await context.CallActivityAsync(nameof(SaveTranscription), audioTranscription);
                     break;
                 }
                 else
@@ -197,13 +160,18 @@ namespace FuncDurable
 
                 if (transcriptionFileUrl == null)
                 {
-                    return ""; // TODO: throw error instead of returning an empty string
+                    throw new Exception("Transcription file url not found");
                 }
 
                 HttpResponseMessage transcriptionDetailsHttpResponse = await httpClient.GetAsync(transcriptionFileUrl);
                 var serializedTranscriptionDetails = await transcriptionDetailsHttpResponse.Content.ReadAsStringAsync();
                 var transcriptionDetails = JsonSerializer.Deserialize<TranscriptionDetails>(serializedTranscriptionDetails, options);
-                var transcription = transcriptionDetails?.CombinedRecognizedPhrases.First().Display ?? ""; // TODO: throw error instead of returning an empty string
+                var transcription = transcriptionDetails?.CombinedRecognizedPhrases.First().Display;
+
+                if (transcription == null)
+                {
+                    throw new Exception("Transcription result not found");
+                }
 
                 logger.LogInformation($"transcription {transcription}");
 
@@ -211,31 +179,17 @@ namespace FuncDurable
             }
         }
 
-        // [Function(nameof(SaveDataToCosmosDB))]
-        // [CosmosDBOutput("%COSMOS_DB_DATABASE_NAME%",
-        //                 "%COSMOS_DB_CONTAINER_ID%",
-        //                 Connection = "COSMOS_DB_CONNECTION_STRING_SETTING",
-        //                 CreateIfNotExists = true)]
-        // public static object SaveDataToCosmosDB(
-        //     [ActivityTrigger] string name,
-        //     FunctionContext executionContext)
-        // {
-        //     ILogger logger = executionContext.GetLogger("SaveDataToCosmosDB");
-        //     logger.LogInformation("Saying hello SaveDataToCosmosDB.");
-
-        //     return new { Id = Guid.NewGuid(), Path = "/file/path" };
-        // }
-
         [Function(nameof(SaveTranscription))]
-        public static string SaveTranscription([ActivityTrigger] string transcription, FunctionContext executionContext)
+        [CosmosDBOutput("%COSMOS_DB_DATABASE_NAME%",
+                         "%COSMOS_DB_CONTAINER_ID%",
+                         Connection = "COSMOS_DB_CONNECTION_STRING_SETTING",
+                         CreateIfNotExists = true)]
+        public static AudioTranscription SaveTranscription([ActivityTrigger] AudioTranscription audioTranscription, FunctionContext executionContext)
         {
-            // TODO
             ILogger logger = executionContext.GetLogger(nameof(SaveTranscription));
-            logger.LogInformation(nameof(SaveTranscription));
-            return $"Hello {transcription}!";
+            logger.LogInformation("Saving the audio transcription...");
+         
+            return audioTranscription;
         }
-
-
-
     }
 }
