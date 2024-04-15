@@ -7,6 +7,7 @@ namespace FuncDurable
         [JsonPropertyName("id")]
         public string Id { get; set; }
         
+        // Blob path uri
         [JsonPropertyName("path")]
         public string Path { get; set; }
     }

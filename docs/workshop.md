@@ -414,7 +414,21 @@ public AudioUploadOutput Run(
 
 </details>
 
-#### Deployment and testing
+#### Testing
+
+##### Run the function locally
+
+To test your function locally, you will need to start the extension `Azurite` to emulate the Azure Storage Account. Just run `Ctrl` + `Shift` + `P` and search for `Azurite: Start`:
+
+![Start Azurite](assets/function-azurite.png)
+
+Then you can use the Azure Function Core Tools to run the function locally:
+
+```bash
+func start
+```
+
+#### Deployment
 
 ##### Option 1 : Deploy your function with VS Code
 
@@ -475,15 +489,64 @@ To process the audio file, extract the transcript and save it to Cosmos DB, you 
 
 ### Detect a file upload event 
 
-Now you have the audio file uploaded to the storage account, you will need to detect this event to trigger the next steps of the scenario.
+Now you have the audio file uploaded in the storage account, you will need to detect this event to trigger the next steps of the scenario.
 
 <div class="task" data-title="Tasks">
 
 > Create a new `Durable Function` with a `Blob Trigger` to detect the file upload event and start the processing of the audio file.
 >
-> Use the `func` CLI tool and .NET 8 using the isolated mode to create this Durable Function
+> Use the `func` CLI tool and .NET 8 using the isolated mode to create this Durable Function.
+> Use the `Audio.cs` file below to instanciate an `AudioFile` object when the Azure Function is triggered.
+> Create an `AudioTranscriptionOrchestration.cs` file which will be used to create the orchestration of the entire Azure Function.
+> Generate a uri with a SAS token to access the blob storage.
 
 </div>
+
+<div class="tip" data-title="Tips">
+
+> [Azure Functions][azure-function]<br>
+> [Azure Functions Binding Expressions][azure-function-bindings-expression]<br>
+> [Azure Function Blob Triggered][azure-function-blob-trigger]<br>
+
+</div>
+
+The `Audio.cs` file will be used to create an `AudioFile` object and also an `AudioTranscription` object when the transcription is done, this will be used to store the data in Cosmos DB in the next step.
+
+```csharp
+// Audio.cs
+using System.Text.Json.Serialization;
+
+namespace FuncDurable
+{
+    public abstract class Audio
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+        
+        // Blob path uri
+        [JsonPropertyName("path")]
+        public string Path { get; set; }
+    }
+
+    public class AudioFile : Audio
+    {
+        [JsonPropertyName("urlWithSasToken")]
+        public string UrlWithSasToken { get; set; }
+
+        [JsonPropertyName("jobUri")]
+        public string? JobUri { get; set; }
+    }
+
+    public class AudioTranscription : Audio
+    {
+        [JsonPropertyName("result")]
+        public string Result { get; set; }
+
+        [JsonPropertyName("status")]
+        public string Status { get; set; }
+    }
+}
+```
 
 <details>
 <summary>📚 Toggle solution</summary>
@@ -497,21 +560,75 @@ cd <function-app-name>
 # No need to specify a name, the folder name will be used by default
 func init FuncDurable --worker-runtime dotnetIsolated --target-framework net8.0
 
-func new --name HelloOrchestration --template "DurableFunctionsOrchestration" --namespace FuncDurable
-
 # Open the new projet inside VS Code
 code .
 
 ```
 
-This will create a template for Durable Functions. You will need to rename and update the `HelloOrchestration.cs` file to add the logic for detecting the file upload event and starting the processing of the audio file.
+Add the `Audio.cs` file with the content provided above. Then create a new file called `AudioTranscriptionOrchestration.cs` to create the orchestration of the entire Azure Function.
 
-
-TODO: UPDATE the start of the orchestration function to use the BlobTrigger
-TODO: Azurite to test the BlobTrigger
+First, let's create the Blob Trigger function:
 
 ```csharp
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.DurableTask;
+using Microsoft.DurableTask.Client;
+using Microsoft.Extensions.Logging;
+using Azure.Storage.Blobs;
+using Azure.Storage.Sas;
+
+namespace FuncDurable
+{
+    public static class AudioTranscriptionOrchestration
+    {
+        [Function(nameof(AudioBlobUploadStart))]
+        public static async Task AudioBlobUploadStart(
+                [BlobTrigger("%STORAGE_ACCOUNT_CONTAINER%/{name}", Connection = "STORAGE_ACCOUNT_CONNECTION_STRING")] BlobClient blobClient,
+                [DurableClient] DurableTaskClient client,
+                FunctionContext executionContext)
+        {
+            ILogger logger = executionContext.GetLogger(nameof(AudioBlobUploadStart));
+
+            var blobSasBuilder = new BlobSasBuilder(BlobSasPermissions.Read, DateTimeOffset.Now.AddMinutes(10));
+            var audioBlobSasUri = blobClient.GenerateSasUri(blobSasBuilder);
+
+            var audioFile = new AudioFile
+            {
+                Id = Guid.NewGuid().ToString(),
+                Path = blobClient.Uri.ToString(),
+                UrlWithSasToken = audioBlobSasUri.AbsoluteUri
+            };
+        }
+    }
+}
 ```
+
+As you can see you are using the `BlobTrigger` attribute to detect the file upload event. This attribute will trigger the function when a new blob is uploaded to the `audios` container. 
+To be able to access the blob storage, you have need to use the `BlobClient` object then we generate a SAS token to access the blob.
+
+To be able to connect the Azure Function to the Storage Account, you will need to set the `STORAGE_ACCOUNT_CONNECTION_STRING` and the `STORAGE_ACCOUNT_CONTAINER` environment variable in your `local.settings.json` localy:
+
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "STORAGE_ACCOUNT_CONNECTION_STRING": "<your-storage-account-connection-string>",
+    "STORAGE_ACCOUNT_CONTAINER": "audios"
+  }
+}
+```
+
+This configuration is already set in the Azure Function App settings (`func-drbl-<your-instance-name>`) when you deployed the infrastructure previously.
+
+Like you did in the previous lab, you can test your function locally by starting `Azurite` and using the Azure Function Core Tools:
+
+```bash
+func start
+```
+
+Deploy your function using the VS Code extension or by command line and try to upload a file to the storage account to see if the function is triggered correctly.
 
 </details>
 
@@ -521,30 +638,25 @@ The Azure Cognitive Services are cloud-based AI services that give the ability t
 
 Cognitive Services can be categorized into five main areas:
 
-- Decision : Content Moderator provides monitoring for possible offensive, undesirable, and risky content. Anomaly Detector allows you to monitor and detect abnormalities in your time series data.
-- Language : Azure Language service provides several Natural Language Processing (NLP) features to understand and analyze text.
-- Speech : Speech service includes various capabilities like speech to text, text to speech, speech translation, and many more.
-- Vision : The Computer Vision service provides you with access to advanced cognitive algorithms for processing images and returning information.
-- Azure OpenAI Service : Powerful language models including the GPT-3, GPT-4, Codex and Embeddings model series for content generation, summarization, semantic search, and natural language to code translation.
+- Decision: Content Moderator provides monitoring for possible offensive, undesirable, and risky content. Anomaly Detector allows you to monitor and detect abnormalities in your time series data.
+- Language: Azure Language service provides several Natural Language Processing (NLP) features to understand and analyze text.
+- Speech: Speech service includes various capabilities like speech to text, text to speech, speech translation, and many more.
+- Vision: The Computer Vision service provides you with access to advanced cognitive algorithms for processing images and returning information.
+- Azure OpenAI Service: Powerful language models including the GPT-3, GPT-4, Codex and Embeddings model series for content generation, summarization, semantic search, and natural language to code translation.
 
-To access these APIs, create a `cognitive service` resource in your subscription. This will instantiate a resource with an associated `API Key` necessary to authenticate the API call owner and apply rate and quota limits as per selected pricing tier.
-
-You now want to retrieve the transcript out of the audio file uploaded thanks to the speech to text cognitive service.
+You now want to retrieve the transcript out of the audio file uploaded thanks to the speech to text cognitive service
 
 ![cognitive service flow](assets/cognitive-service-flow.png)
 
 <div class="task" data-title="Tasks">
 
-> To do this, you will have to:
+> - Because the transcription can be a long process, you will use the monitor pattern of the Azure Durable Functions to call the speech to text batch API and check the status of the transcription until it's done.
 >
-> - Retrieve your auto-generated `Api Key` from the Azure Cognitive Service
-> - Call the speech to text API
-
-</div>
-
-<div class="important" data-title="Security">
-
-> Remember to store secrets as connection strings and `Api keys` in an Azure Key Vault to manage and secure their access.
+> - Use the `SpeechToTextService.cs` file and the `Transcription.cs` model to get the transcription.
+> - Call the speech to text batch API and check the status of the transcription using the Azure Durable Functions monitor pattern.
+> - A scheleton of the orchestration part will be provided below.
+> - Create a `AudioTranscription` object when the transcription is done, this will be used to store the data in Cosmos DB in the next step.
+> - Do not forget to start the orchestration in the `AudioBlobUploadStart` function.
 
 </div>
 
@@ -552,55 +664,325 @@ You now want to retrieve the transcript out of the audio file uploaded thanks to
 
 > [What are Cognitive Services][cognitive-services]<br>
 > [Cognitive Service Getting Started][cognitive-service-api]<br> 
-> [Create a Key Vault][key-vault]
+> [Batch endpoint Speech to Text API][speech-to-text-batch-endpoint]<br>
+> [Monitor pattern Durable Function][monitor-pattern-durable-functions]<br>
 
 </div>
+
+This is the definition of the `Transcription.cs` file:
+
+```csharp
+namespace FuncDurable
+{
+    public class TranscriptionJobFiles
+    {
+        public string Files { get; set; }
+    }
+
+    public class TranscriptionJob
+    {
+        public string Self { get; set; }
+
+        public string Status { get; set; }
+
+        public TranscriptionJobFiles Links { get; set; }
+    }
+
+    public class TranscriptionResultValueFile
+    {
+        public string ContentUrl { get; set; }
+    }
+
+    public class TranscriptionResultValue
+    {
+        public string Kind { get; set; }
+        public TranscriptionResultValueFile Links { get; set; }
+    }
+
+    public class TranscriptionResult
+    {
+        public TranscriptionResultValue[] Values { get; set; }
+    }
+
+    public class Transcription
+    {
+        public string Display { get; set; }
+    }
+
+    public class TranscriptionDetails
+    {
+        public Transcription[] CombinedRecognizedPhrases { get; set; }
+    }
+}
+```
+
+Here is the content of the `SpeechToTextService.cs` file:
+
+```csharp
+using System.Text;
+using System.Text.Json;
+
+namespace FuncDurable
+{
+    public static class SpeechToTextService
+    {
+        private static HttpClient httpClient = new()
+        {
+            BaseAddress = new Uri(Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_ENDPOINT")!),
+            DefaultRequestHeaders = { { "Ocp-Apim-Subscription-Key", Environment.GetEnvironmentVariable("SPEECH_TO_TEXT_API_KEY")! } }
+        };
+
+        public static async Task<string> CreateBatchTranscription(string audioBlobSasUri, string? id)
+        {
+            using StringContent jsonContent = new(
+                JsonSerializer.Serialize(new
+                {
+                    contentUrls = new List<string> { audioBlobSasUri },
+                    locale = "en-US",
+                    displayName = id ?? $"My Transcription {DateTime.UtcNow.ToLongTimeString()}",
+                }),
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            HttpResponseMessage httpResponse = await httpClient.PostAsync("/speechtotext/v3.1/transcriptions", jsonContent);
+            var serializedJob = await httpResponse.Content.ReadAsStringAsync();
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var job = JsonSerializer.Deserialize<TranscriptionJob>(serializedJob, options);
+
+            if (job == null) {
+                throw new Exception("Batch transcription creation failure");
+            }
+
+            return job.Self;
+        }
+
+        private static async Task<TranscriptionJob?> GetBatchTranscriptionJob(string jobUrl)
+        {
+            HttpResponseMessage httpResponse = await httpClient.GetAsync(jobUrl);
+            var serializedJob = await httpResponse.Content.ReadAsStringAsync();
+
+
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            return JsonSerializer.Deserialize<TranscriptionJob>(serializedJob, options);
+        }
+        
+        public static async Task<string> CheckBatchTranscriptionStatus(string jobUrl)
+        {
+            var job = await GetBatchTranscriptionJob(jobUrl);
+
+            return job?.Status ?? "Unknown";
+        }
+
+        public static async Task<string> GetTranscription(string jobUrl)
+        {
+            var job = await GetBatchTranscriptionJob(jobUrl);
+
+            // https://learn.microsoft.com/en-us/rest/api/speechtotext/transcriptions/get?view=rest-speechtotext-v3.2-preview.2&tabs=HTTP#status
+            if (job?.Status == "Failed") {
+                return "";
+            }
+
+            if (job?.Status != "Succeeded") {
+                throw new Exception("Batch transcription not done yet");
+            }
+
+            var files = job?.Links.Files;
+
+            HttpResponseMessage resultsHttpResponse = await httpClient.GetAsync(files);
+            var serializedJobResults = await resultsHttpResponse.Content.ReadAsStringAsync();
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var transcriptionResult = JsonSerializer.Deserialize<TranscriptionResult>(serializedJobResults, options);
+            var transcriptionFileUrl = transcriptionResult?.Values.Where(value => value.Kind == "Transcription").First().Links.ContentUrl;
+
+            if (transcriptionFileUrl == null)
+            {
+                throw new Exception("Transcription file url not found");
+            }
+
+            HttpResponseMessage transcriptionDetailsHttpResponse = await httpClient.GetAsync(transcriptionFileUrl);
+            var serializedTranscriptionDetails = await transcriptionDetailsHttpResponse.Content.ReadAsStringAsync();
+            var transcriptionDetails = JsonSerializer.Deserialize<TranscriptionDetails>(serializedTranscriptionDetails, options);
+            var transcription = transcriptionDetails?.CombinedRecognizedPhrases.First().Display;
+
+            if (transcription == null)
+            {
+                throw new Exception("Transcription result not found");
+            }
+
+            return transcription;
+        }
+    }
+}
+```
+
+Below is the orchestration part of the `AudioTranscriptionOrchestration.cs` file where you will have to implement the different steps of the orchestration marked by `TODO`:
+
+```csharp
+[Function(nameof(AudioTranscriptionOrchestration))]
+public static async Task RunOrchestrator(
+    [OrchestrationTrigger] TaskOrchestrationContext context, 
+    AudioFile audioFile)
+{
+    ILogger logger = context.CreateReplaySafeLogger(nameof(AudioTranscriptionOrchestration));
+    if (!context.IsReplaying) { logger.LogInformation($"Processing audio file {audioFile.Id}"); }
+
+    // Step1: TODO: Start transcription
+    
+
+    DateTime endTime = context.CurrentUtcDateTime.AddMinutes(2);
+
+    while (context.CurrentUtcDateTime < endTime)
+    {
+        // Step2: TODO: Check if transcription is done
+        
+        if (!context.IsReplaying) { logger.LogInformation($"Status of the transcription of {audioFile.Id}: {status}"); }
+
+        if (status == "Succeeded" || status == "Failed")
+        {
+            // Step3: TODO: Get transcription
+            
+
+            if (!context.IsReplaying) { logger.LogInformation($"Saving transcription of {audioFile.Id} to Cosmos DB"); }
+
+            break;
+        }
+        else
+        {
+            // Wait for the next checkpoint
+            var nextCheckpoint = context.CurrentUtcDateTime.AddSeconds(5);
+            if (!context.IsReplaying) { logger.LogInformation($"Next check for {audioFile.Id} at {nextCheckpoint}."); }
+
+            await context.CreateTimer(nextCheckpoint, CancellationToken.None);
+        }
+    }
+}
+
+[Function(nameof(StartTranscription))]
+public static async Task<string> StartTranscription([ActivityTrigger] AudioFile audioFile, FunctionContext executionContext)
+{
+    // TODO: Call the Speech To Text service to create a batch transcription
+}
+
+
+[Function(nameof(CheckTranscriptionStatus))]
+public static async Task<string> CheckTranscriptionStatus([ActivityTrigger] AudioFile audioFile, FunctionContext executionContext)
+{
+    // TODO: Call the Speech To Text service to check the status of the transcription
+}
+
+
+[Function(nameof(GetTranscription))]
+public static async Task<string?> GetTranscription([ActivityTrigger] AudioFile audioFile, FunctionContext executionContext)
+{
+    // TODO: Call the Speech To Text service to get the transcription
+}
+```
 
 <details>
 <summary>📚 Toggle solution</summary>
 
-TODO: A update en fonction de l'usage dans AZ function
+First, you need to start the orchestration of the transcription of the audio file in the `AudioBlobUploadStart` function you did previously by addind this code at the end:
 
-To allow the Logic App to access the Key Vault, you need to grant access to it. Go to your Logic App and inside the identity tab, turn on the `System Identity`:
+```csharp
+string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(nameof(AudioTranscriptionOrchestration), audioFile);
 
-![System Identity](assets/logic-app-system-identity.png)
+logger.LogInformation("Started orchestration with ID = '{instanceId}'.", instanceId);
+```
 
-Then in your Key Vault, go to `Access policies` and create a new one, set the Secret access to `Get` and `List`:
+The `ScheduleNewOrchestrationInstanceAsync` will start the orchestration of the transcription of the audio file.
 
-![Key Vault Access](assets/key-vault-secret-access.png)
+Then you will need to implement the different steps of the orchestration in the `AudioTranscriptionOrchestration.cs` file.
 
-Then search for your logic app.
+Let's start with the `StartTranscription` function:
 
-![Key Vault Access Logic App](assets/key-vault-access-logic-app.png)
+```csharp
+ILogger logger = executionContext.GetLogger(nameof(StartTranscription));
+logger.LogInformation($"Starting transcription of {audioFile.Id}");
 
-Now inside your Key Vault, in the `Secret` section add a new one called `SpeechToTextApiKey` and set a key from the cognitive service.
+var jobUri = await SpeechToTextService.CreateBatchTranscription(audioFile.UrlWithSasToken, audioFile.Id);
 
-If you can't add the secrets, this means that you need to give to the account you are using, access to the Key Vault like you did previously with Logic App. So, in your Key Vault, go to `Access policies` and create a new one, set the Secret access to `Get`, `List` and `Set`.
+logger.LogInformation($"Job uri for {audioFile.Id}: {jobUri}");
 
-![Key Vault Cognitive Secret](assets/key-vault-cognitive-secret.png)
+return jobUri;
+```
 
-With all the pre-requisites set (Key Vault **created**, secret Cognitive Service api key **set**, Logic App Managed Identity access to key vault **enabled**), add a new action in your **logic app workflow** by searching for `Key Vault` and then select `Get Secret`. This will load the speech to text API key once.
+The goal here is to create a batch transcription using the `SpeechToTextService` and retreive the job uri of the transcription. This job uri will be used to check the status of the transcription and get the transcription itself.
 
-![Logic App Key Vault Connection](assets/logic-app-key-vault-connection.png)
+Then you will need to implement the `CheckTranscriptionStatus` function:
 
-Select the Key Vault resource and the name of the secret.
+```csharp
+ILogger logger = executionContext.GetLogger(nameof(CheckTranscriptionStatus));
+logger.LogInformation($"Checking the transcription status of {audioFile.Id}");
+var status = await SpeechToTextService.CheckBatchTranscriptionStatus(audioFile.JobUri!);
+return status;
+```
 
-![Logic App Get Secret](assets/logic-app-get-secret.png)
+This function will check the status of the transcription using the `SpeechToTextService` and return the status.
 
-Next, add a new action by searching for `Http`, then fill in the different parameters as follows after retrieving the cognitive service endtpoint from the **resource overview**:
+Finally, you will need to implement the `GetTranscription` function:
 
-![Logic App HTTP Action](assets/logic-app-http-action.png)
+```csharp
+ILogger logger = executionContext.GetLogger(nameof(GetTranscription));
+var transcription = await SpeechToTextService.GetTranscription(audioFile.JobUri!);
+logger.LogInformation($"Transcription of {audioFile.Id}: {transcription}");
+return transcription;
+```
 
-Notice the region of your cognitive service account and the language to use are specified in the API Url. All parameters can be found in the default [sample][default-cognitive-sample]
+This function will get the transcription of the audio file using the `SpeechToTextService` and return the transcription.
 
-To validate the flow, go to your storage account and delete the audio file from the `audios` container and upload it once again (to trigger the updated logic app).
-In the Logic App `Run History`, you should see the transcript of the audio file as a text output from the HTTP call to Speech to Text API.
+As you probably noticed, each function use his own logger to log the different steps of the orchestration. This will help you to debug the orchestration if needed.
 
-![Logic App Run History](assets/logic-app-run-history.png)
+So far so good, you have all the functions needed to orchestrate the transcription of the audio file. The idea now is to call those functions in the orchestration part of the `AudioTranscriptionOrchestration.cs` file.
 
-Select your run and open the `Http` action block to verify the `Outputs` section : 
+Each of those functions (`StartTranscription`, `CheckTranscriptionStatus` and `GetTranscription`) will be called in the orchestration part as an activity.
 
-![Logic App Run History Details](assets/logic-app-run-result.png)
+For the `Step1` you just need to call the `StartTranscription` function:
+
+```csharp
+var jobUri = await context.CallActivityAsync<string>(nameof(StartTranscription), audioFile);
+audioFile.JobUri = jobUri;
+```
+
+For the `Step2` you will need to call the `CheckTranscriptionStatus` function:
+
+```csharp
+var status = await context.CallActivityAsync<string>(nameof(CheckTranscriptionStatus), audioFile);
+        if (!context.IsReplaying) { logger.LogInformation($"Status of the transcription of {audioFile.Id}: {status}"); }
+```
+
+For the `Step3` you will need to call the `GetTranscription` function and create the `AudioTranscription` object to store the data in Cosmos DB in the next step:
+
+```csharp
+string transcription = await context.CallActivityAsync<string>(nameof(GetTranscription), audioFile);
+
+if (!context.IsReplaying) { logger.LogInformation($"Retrieved transcription of {audioFile.Id}: {transcription}"); }
+
+var audioTranscription = new AudioTranscription
+{
+    Id = audioFile.Id,
+    Path = audioFile.Path,
+    Result = transcription,
+    Status = status
+};
+```
+
+If you run the function locally and upload an audio file, you should see the different steps of the orchestration in the logs and the transcription of the audio file.
 
 </details>
 
@@ -671,7 +1053,9 @@ The first Azure Function API created in the Lab offers a first security layer to
 [azure-function-http]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?pivots=programming-language-python&tabs=python-v2%2Cin-process%2Cfunctionsv2
 [azure-function-blob-output]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-blob-output?pivots=programming-language-python&tabs=python-v2%2Cin-process
 [azure-function-bindings-expression]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-expressions-patterns
-[event-grid-subject-filtering]: https://learn.microsoft.com/en-us/azure/event-grid/event-filtering#subject-filtering
+[azure-function-blob-trigger]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-blob-trigger?tabs=python-v2%2Cisolated-process%2Cnodejs-v4%2Cextensionv5&pivots=programming-language-csharp
+[speech-to-text-batch-endpoint]: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/batch-transcription-audio-data?tabs=portal
+[monitor-pattern-durable-functions]: https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-monitor?tabs=csharp
 [storage-account]: https://learn.microsoft.com/fr-fr/cli/azure/storage/account?view=azure-cli-latest
 [storage-account-container]: https://learn.microsoft.com/fr-fr/cli/azure/storage/container?view=azure-cli-latest
 [event-grid-system-topic]: https://learn.microsoft.com/en-us/azure/event-grid/system-topics
