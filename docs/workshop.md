@@ -497,12 +497,12 @@ Now you have the audio file uploaded in the storage account, you will need to de
 
 <div class="task" data-title="Tasks">
 
-> Create a new `Durable Function` with a `Blob Trigger` to detect the file upload event and start the processing of the audio file.
+> - Create a new `Durable Function` with a `Blob Trigger` to detect the file upload event and start the processing of the audio file.
 >
-> Use the `func` CLI tool and .NET 8 using the isolated mode to create this Durable Function.
-> Use the `Audio.cs` file below to instanciate an `AudioFile` object when the Azure Function is triggered.
-> Create an `AudioTranscriptionOrchestration.cs` file which will be used to create the orchestration of the entire Azure Function.
-> Generate a uri with a SAS token to access the blob storage.
+> - Use the `func` CLI tool and .NET 8 using the isolated mode to create this Durable Function.
+> - Use the `Audio.cs` file below to instanciate an `AudioFile` object when the Azure Function is triggered.
+> - Create an `AudioTranscriptionOrchestration.cs` file which will be used to create the orchestration of the entire Azure Function.
+> - Generate a uri with a SAS token to access the blob storage.
 
 </div>
 
@@ -562,7 +562,13 @@ cd <function-app-name>
 
 # Create the new function app as a .NET 8 Isolated project
 # No need to specify a name, the folder name will be used by default
-func init FuncDurable --worker-runtime dotnetIsolated --target-framework net8.0
+func init --worker-runtime dotnetIsolated --target-framework net8.0
+
+# Add the Nuget package for Storage Account to use for Functions
+dotnet add package Microsoft.Azure.Functions.Worker.Extensions.Storage.Blobs --version 6.3.0
+
+# Add the Nuget package to use Durable Functions
+dotnet add package Microsoft.Azure.Functions.Worker.Extensions.DurableTask --version 1.0.0
 
 # Open the new projet inside VS Code
 code .
@@ -601,15 +607,17 @@ namespace YOUR_NAMESPACE_HERE
                 Path = blobClient.Uri.ToString(),
                 UrlWithSasToken = audioBlobSasUri.AbsoluteUri
             };
+
+            logger.LogInformation($"Processing audio file {audioFile.Id}");
         }
     }
 }
 ```
 
 As you can see you are using the `BlobTrigger` attribute to detect the file upload event. This attribute will trigger the function when a new blob is uploaded to the `audios` container. 
-To be able to access the blob storage, you have need to use the `BlobClient` object then we generate a SAS token to access the blob.
+To be able to access the blob storage, you need to use the `BlobClient` object then we generate a SAS token to access the blob.
 
-To be able to connect the Azure Function to the Storage Account, you will need to set the `STORAGE_ACCOUNT_CONNECTION_STRING` and the `STORAGE_ACCOUNT_CONTAINER` environment variable in your `local.settings.json` localy:
+To be able to connect the Azure Function to the Storage Account, you will need to set the `STORAGE_ACCOUNT_CONNECTION_STRING` and the `STORAGE_ACCOUNT_CONTAINER` environment variable in your `local.settings.json` locally:
 
 ```json
 {
@@ -647,18 +655,15 @@ Cognitive Services can be categorized into five main areas:
 - Vision: The Computer Vision service provides you with access to advanced cognitive algorithms for processing images and returning information.
 - Azure OpenAI Service: Powerful language models including the GPT-3, GPT-4, Codex and Embeddings model series for content generation, summarization, semantic search, and natural language to code translation.
 
-You now want to retrieve the transcript out of the audio file uploaded thanks to the speech to text cognitive service
-
-![cognitive service flow](assets/cognitive-service-flow.png)
+You now want to retrieve the transcript out of the audio file uploaded thanks to the speech to text cognitive service.
 
 <div class="task" data-title="Tasks">
 
 > - Because the transcription can be a long process, you will use the monitor pattern of the Azure Durable Functions to call the speech to text batch API and check the status of the transcription until it's done.
 >
-> - Use the `SpeechToTextService.cs` file and the `Transcription.cs` model to get the transcription.
-> - Call the speech to text batch API and check the status of the transcription using the Azure Durable Functions monitor pattern.
+> - Use the `SpeechToTextService.cs` file and the `Transcription.cs` model provided below to get the transcription.
 > - A scheleton of the orchestration part will be provided below.
-> - Create a `AudioTranscription` object when the transcription is done, this will be used to store the data in Cosmos DB in the next step.
+> - Instanciate an `AudioTranscription` object when the transcription is done, this will be used to store the data in Cosmos DB in the next step.
 > - Do not forget to start the orchestration in the `AudioBlobUploadStart` function.
 
 </div>
@@ -1019,10 +1024,10 @@ You now have a transcription of your audio file, next step is to store it in a N
 
 <div class="task" data-title="Tasks">
 
-> Create a new `Activity Function` called `SaveTranscription` to store the transcription of the audio file in Cosmos DB.
-> Use the `CosmosDBOutput` binding to store the data in the Cosmos DB.
-> Store the `AudioTranscription` object in the Cosmos DB container called `audios_transcripts`
-> Call the activity from the orchestration part of the `AudioTranscriptionOrchestration.cs` file.
+> - Create a new `Activity Function` called `SaveTranscription` to store the transcription of the audio file in Cosmos DB.
+> - Use the `CosmosDBOutput` binding to store the data in the Cosmos DB.
+> - Store the `AudioTranscription` object in the Cosmos DB container called `audios_transcripts`.
+> - Call the activity from the orchestration part.
 
 </div>
 
@@ -1036,7 +1041,13 @@ You now have a transcription of your audio file, next step is to store it in a N
 <details>
 <summary>📚 Toggle solution</summary>
 
-To store the transcription of the audio file in Cosmos DB, you will need to create a new `Activity Function` called `SaveTranscription` in the `AudioTranscriptionOrchestration.cs` file and apply the `CosmosDBOutput` binding to store the data in the Cosmos DB:
+Because you need to connect to Azure Cosmos DB with the `CosmosDBOutput` binding you need to first add the associated Nuget Package:
+
+```bash
+dotnet add package Microsoft.Azure.Functions.Worker.Extensions.CosmosDB --version 4.8.0
+```
+
+Then to store the transcription of the audio file in Cosmos DB, you will need to create a new `Activity Function` called `SaveTranscription` in the `AudioTranscriptionOrchestration.cs` file and apply the `CosmosDBOutput` binding to store the data in the Cosmos DB:
 
 ```csharp
 [Function(nameof(SaveTranscription))]
@@ -1055,7 +1066,7 @@ public static AudioTranscription SaveTranscription([ActivityTrigger] AudioTransc
 
 As you can see, by just defining the binding, the Azure Function will take care of storing the data in the Cosmos DB container, so you just need to return the object you want to store, in this case, the `AudioTranscription` object.
 
-To be able to connect the Azure Function to the Cosmos DB, you will need to set the `COSMOS_DB_CONNECTION_STRING`, the `COSMOS_DB_DATABASE_NAME` and the `COSMOS_DB_CONTAINER_ID` environment variable in your `local.settings.json` localy:
+To be able to connect the Azure Function to the Cosmos DB, you will need to set the `COSMOS_DB_CONNECTION_STRING`, the `COSMOS_DB_DATABASE_NAME` and the `COSMOS_DB_CONTAINER_ID` environment variable in your `local.settings.json` locally:
 
 ```json
 {
@@ -1068,7 +1079,7 @@ To be able to connect the Azure Function to the Cosmos DB, you will need to set 
     "SPEECH_TO_TEXT_ENDPOINT": "<your-speech-to-text-endpoint>",
     "SPEECH_TO_TEXT_API_KEY": "<your-speech-to-text-api-key>",
     "COSMOS_DB_CONNECTION_STRING": "<your-cosmos-db-connection-string>",
-    "COSMOS_DB_DATABASE_NAME": "<your-cosmos-db-database-name>",
+    "COSMOS_DB_DATABASE_NAME": "HolDb",
     "COSMOS_DB_CONTAINER_ID": "audios_transcripts"
   }
 }
@@ -1105,9 +1116,9 @@ You can now validate the entire workflow : delete and upload once again the audi
 
 By now you should have a solution that :
 
-- Send new audio files added to a blob storage using a first Azure Function, based on a specific file type (.wav only), and destination (`audios` container).
-- Will invoke the execution of an Azure Durable Function responsible for retrieving the audio transcription thanks to a Speech to Text (Cognitive Service) call.
-- Once the transcription is retrieved, the Azure Durable Function will store this value in a CosmosDB database.
+- Send new audio files added to a blob storage using a first Azure Function, inside an `audios` container.
+- Invoke the execution of an Azure Durable Function responsible for retrieving the audio transcription thanks to a Speech to Text (Cognitive Service) batch processing call.
+- Once the transcription is retrieved, the Azure Durable Function store this value in a Cosmos DB database.
 
 The first Azure Function API created in the Lab offers a first security layer to the solution as it requires a key to be called, as well as makes sure all the files are stores with a uniquely generated name (GUID).
 
@@ -1130,7 +1141,7 @@ The first Azure Function API created in the Lab offers a first security layer to
 
 # Lab 2 : Retrieve transcriptions (1 hour)
 
-On this second lab, you will focus on getting back the transcriptions of audio files and displaying them on the demo Web App. The front end of the web app is a Single-Page application with static files hosted in an Azure **Static Web App**. The front end will interact with other backend Http Endpoints services and the CosmosDb instance mainly via built-in Azure Function as a **Managed serverless** backend for the Web App.   
+In this second lab, you will focus on getting back the transcriptions of audio files and displaying them on the demo Web App. The front end of the web app is a Single-Page application with static files hosted in an Azure **Static Web App**. The front end will interact with other backend Http Endpoints services and the CosmosDb instance mainly via built-in Azure Function as a **Managed serverless** backend for the Web App.   
 
 Previously processed transcriptions will be retrieved using HTTP GET requests whereas new transcriptions will be retrieved in real-time using websockets.
 

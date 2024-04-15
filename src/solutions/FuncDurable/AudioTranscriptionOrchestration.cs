@@ -27,6 +27,8 @@ namespace FuncDurable
                 UrlWithSasToken = audioBlobSasUri.AbsoluteUri
             };
 
+            logger.LogInformation($"Processing audio file {audioFile.Id}");
+
             string instanceId = await client.ScheduleNewOrchestrationInstanceAsync(nameof(AudioTranscriptionOrchestration), audioFile);
 
             logger.LogInformation("Started orchestration with ID = '{instanceId}'.", instanceId);
