@@ -12,7 +12,7 @@ contacts: # Required. Must match the number of authors
   - "@damienaicheh"
   - "@ikhemissi"
 duration_minutes: 180
-tags: azure, azure functions, azure durable functions, event grid, key vault, cosmos db, web pubsub, static web app, csu, codespace, devcontainer
+tags: azure, azure functions, azure durable functions, cosmos db, web pubsub, static web app, api management, apim, csu, codespace, devcontainer
 navigation_levels: 3
 ---
 
@@ -38,13 +38,13 @@ Before starting this lab, be sure to set your Azure environment :
 
 - An Azure Subscription with the **Contributor** role to create and manage the labs' resources and deploy the infrastructure as code
 - A dedicated resource group for this lab to ease the cleanup at the end.
-- Register the Azure providers on your Azure Subscription if not done yet: `Microsoft.CognitiveServices`, `Microsoft.DocumentDB`, `Microsoft.KeyVault`, `Microsoft.SignalRService`, `Microsoft.Web`, `Microsoft.ApiManagement`.
+- Register the Azure providers on your Azure Subscription if not done yet: `Microsoft.CognitiveServices`, `Microsoft.DocumentDB`, `Microsoft.SignalRService`, `Microsoft.Web`, `Microsoft.ApiManagement`.
 
 
 To retrieve the lab content :
 
 - A Github account (Free, Team or Enterprise)
-- Create a [fork][Repo-fork] of the repository from the **main** branch to help you keep track of your changes
+- Create a [fork][repo-fork] of the repository from the **main** branch to help you keep track of your changes
 
 3 development options are available:
   - 🥇 **Preferred method** : Pre-configured GitHub Codespace 
@@ -107,6 +107,8 @@ The following tools and access will be necessary to run the lab in good conditio
 - If you are using VS Code, you can also install the [Azure Function extension][azure-function-vs-code-extension]
 - The following languages if you want to run all the Azure Functions solutions : 
   - [.Net 8][download-dotnet]
+- The following languages if you want to run the Web App :
+  - [Node 18][download-node]
 
 Once you have set up your local environment, you can clone the Hands-on-lab-Functions repo you just forked on your machine, and open the local folder in Visual Studio Code and head to the next step. 
 
@@ -146,7 +148,7 @@ Let's begin!
 # Login to Azure : 
 # --tenant : Optional | In case your Azure account has access to multiple tenants
 
-# Option 1 : Local Environment 
+# Option 1 : Local Environment or Dev Container
 az login --tenant <yourtenantid or domain.com>
 # Option 2 : Github Codespace : you might need to specify --use-device-code parameter to ease the az cli authentication process
 az login --use-device-code --tenant <yourtenantid or domain.com>
@@ -162,8 +164,6 @@ az account set --subscription <subscription-id>
 az provider register --namespace 'Microsoft.CognitiveServices'
 # Azure CosmosDb
 az provider register --namespace 'Microsoft.DocumentDB'
-# Azure Key Vault
-az provider register --namespace 'Microsoft.KeyVault'
 # Azure Web PubSub
 az provider register --namespace 'Microsoft.SignalRService'
 # Azure API Management
@@ -194,15 +194,15 @@ terraform apply -auto-approve
 Now you can deploy the web app code into the Static Web App:
 
 ```bash
+# Deploy the web app code into the Static Web App
+RESOURCE_GROUP_NAME="$(terraform output -raw resource_group_name)"
+STATIC_WEB_APP="$(terraform output -raw static_web_app_name)"
+
 # Restore packages 
 cd ../src/webapp && npm install
 
 # Build the Web App
 npm run swa:build
-
-# Deploy the web app code into the Static Web App
-RESOURCE_GROUP_NAME="$(terraform output -raw resource_group_name)"
-STATIC_WEB_APP="$(terraform output -raw static_web_app_name)"
 
 npm run swa:deploy -- \
   --resource-group $RESOURCE_GROUP_NAME \
@@ -233,12 +233,6 @@ Here is a diagram to illustrate the flow:
 1. The Azure Function will then fetch the transcript from CosmosDB and publish it to Web Pub/Sub
 1. The web application being a subscriber of the Web Pub-Sub resource, it will be notified about the new transcript being added via a websocket and display it in the list.
 
-<div class="info" data-title="Note">
-
-> Azure Key Vault will be used to secure the secrets used through the entire scenario.
-
-</div>
-
 You will get more details about each of these services during the Hands On Lab.
 
 ## Programming language
@@ -254,10 +248,11 @@ With everything ready let's start the lab 🚀
 [vs-code]: https://code.visualstudio.com/
 [azure-function-vs-code-extension]: https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-azurefunctions
 [docker-desktop]: https://www.docker.com/products/docker-desktop/
-[Repo-fork]: https://github.com/microsoft/hands-on-lab-functions/fork
+[repo-fork]: https://github.com/microsoft/hands-on-lab-functions/fork
 [git-client]: https://git-scm.com/downloads
 [github-account]: https://github.com/join
 [download-dotnet]: https://dotnet.microsoft.com/en-us/download/dotnet/8.0
+[download-node]: https://nodejs.org/en
 
 ---
 
@@ -267,7 +262,7 @@ For this first lab, you will focus on the following scope :
 
 ![Hand's On Lab Architecture Lab 1](assets/architecture-lab1.svg)
 
-The Azure storage account is used to store data objects, including blobs, file shares, queues, tables, and disks. You will use it to store the audios files inside an `audios` container.
+The Azure Storage Account is used to store data objects, including blobs, file shares, queues, tables, and disks. You will use it to store the audios files inside an `audios` container.
 
 To check that everything was created as expected, open the [Azure Portal][az-portal] and you should retrieve your `audios` container:
 
@@ -291,11 +286,11 @@ Azure Functions run and benefit from the App Service platform, offering features
 
 ### Azure Functions : Let's practice
 
-At this stage in our scenario, the goal is to upload an audio into the Storage Account inside the `audios` container. To achieve this, an Azure Function will be used as an API to upload the audio file with a unique `GUID` name to your storage account.
+At this stage in our scenario, the goal is to upload an audio into the Storage Account inside the `audios` container. To achieve this, an Azure Function will be used as an API to upload the audio file with a unique `GUID` name to your Storage Account.
 
 <div class="task" data-title="Tasks">
 
-> Create an `Azure Function` with a POST `HTTP Trigger` and a `Blob Output Binding` to upload the file to the storage account. The Blob Output Binding will use a `binding expression` to generate a unique `GUID` name for the file.
+> Create an `Azure Function` with a POST `HTTP Trigger` and a `Blob Output Binding` to upload the file to the Storage Account. The Blob Output Binding will use a `binding expression` to generate a unique `GUID` name for the file.
 >
 > Use the `func` CLI tool and .NET 8 using the isolated mode to create this Azure Function
 
@@ -303,8 +298,6 @@ At this stage in our scenario, the goal is to upload an audio into the Storage A
 
 <div class="tip" data-title="Tips">
 
-> An Azure Function example solution will be provided below in .NET 8.
->
 > [Azure Functions][azure-function]<br> 
 > [Azure Function Core Tools][azure-function-core-tools]<br> 
 > [Basics of Azure Functions][azure-function-basics]<br> 
@@ -344,8 +337,6 @@ code .
 ```
 
 If you open the Azure Function App resource started with `func-std` in the [Azure Portal][az-portal] and go to the `Environment variables` panel. You should see in App Settings the `STORAGE_ACCOUNT_CONTAINER` set to `audios` and the connection string of the storage account already pre-populated in the `STORAGE_ACCOUNT_CONNECTION_STRING` environment variable.
-
-Finally, make sure to set `FILE_UPLOADING_FORMAT` to `binary` in the Static Web App settings as this function implementation expects the audio file contents to be passed directly in the POST request body, without using a form.
 
 #### .NET 8 implementation
 
@@ -418,6 +409,20 @@ public AudioUploadOutput Run(
 
 ##### Run the function locally
 
+Add the following environment variables to your `local.settings.json` file:
+
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "STORAGE_ACCOUNT_CONNECTION_STRING": "<your-storage-account-connection-string>",
+    "STORAGE_ACCOUNT_CONTAINER": "audios"
+  }
+}
+```
+
 To test your function locally, you will need to start the extension `Azurite` to emulate the Azure Storage Account. Just run `Ctrl` + `Shift` + `P` and search for `Azurite: Start`:
 
 ![Start Azurite](assets/function-azurite.png)
@@ -466,7 +471,6 @@ It's now time to connect the Azure Function App which stand for a small API to u
 <div class="task" data-title="Task">
 
 > - Check the README of the web app project to explore the environment variables supported by the Web App you deployed on Lab 0 and set the value of `FILE_UPLOADING_URL` to the url of the uploaded function which you have created in the previous lab.
-> - If you followed the solutions provided above to create your **AudioUpload** Function endpoint: Set `FILE_UPLOADING_FORMAT` to `binary`, as it will force the frontend to treat the Azure Function endpoint as a binary receiver, rather than a multi-part form receiver.
 
 </div>
 
@@ -475,17 +479,17 @@ It's now time to connect the Azure Function App which stand for a small API to u
 
 First, go to the Azure Static Web App resource and inside `Configuration` in the `Application Settings` set the environment variable `FILE_UPLOADING_URL` to the same Azure Function `AudioUpload` endpoint you retrieved earlier in the lab above like `https://<functionapp>.azurewebsites.net/api/audioupload?code=<...>`.
 
-If your function expects a binary as an input then you will also need to set `FILE_UPLOADING_FORMAT` to `binary`
-
 Now if you try to upload a file using the Web App interface you should see a green box in the bottom left corner with a success message.
 
 ![Web App](assets/static-web-app-upload-succeeded.png)
+
+If you look at the `audios` container in the Storage Account, you should see the uploaded file.
 
 </details>
 
 ## Process the audio file (1 hour 30 min)
  
-To process the audio file, extract the transcript and save it to Cosmos DB, you will need to create a Durable Function. Durable Functions are an extension of Azure Functions that lets you write stateful functions in a serverless environment. The extension manages state, checkpoints, and restarts for you.
+To process the audio file, extract the transcript and save it to Azure Cosmos DB, you will need to create a Durable Function. Durable Functions are an extension of Azure Functions that lets you write stateful functions in a serverless environment. The extension manages state, checkpoints, and restarts for you.
 
 ### Detect a file upload event 
 

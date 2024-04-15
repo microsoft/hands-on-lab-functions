@@ -1,5 +1,5 @@
 {
-  "name": "Serverless Containers",
+  "name": "Functions Dev Container",
   "image": "mcr.microsoft.com/devcontainers/dotnet:8.0-jammy",
 
   "containerUser": "vscode",
