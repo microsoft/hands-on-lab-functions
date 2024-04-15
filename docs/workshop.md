@@ -516,7 +516,7 @@ The `Audio.cs` file will be used to create an `AudioFile` object and also an `Au
 // Audio.cs
 using System.Text.Json.Serialization;
 
-namespace FuncDurable
+namespace YOUR_NAMESPACE_HERE
 {
     public abstract class Audio
     {
@@ -562,7 +562,6 @@ func init FuncDurable --worker-runtime dotnetIsolated --target-framework net8.0
 
 # Open the new projet inside VS Code
 code .
-
 ```
 
 Add the `Audio.cs` file with the content provided above. Then create a new file called `AudioTranscriptionOrchestration.cs` to create the orchestration of the entire Azure Function.
@@ -577,7 +576,7 @@ using Microsoft.Extensions.Logging;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
 
-namespace FuncDurable
+namespace YOUR_NAMESPACE_HERE
 {
     public static class AudioTranscriptionOrchestration
     {
@@ -672,7 +671,7 @@ You now want to retrieve the transcript out of the audio file uploaded thanks to
 This is the definition of the `Transcription.cs` file:
 
 ```csharp
-namespace FuncDurable
+namespace YOUR_NAMESPACE_HERE
 {
     public class TranscriptionJobFiles
     {
@@ -722,7 +721,7 @@ Here is the content of the `SpeechToTextService.cs` file:
 using System.Text;
 using System.Text.Json;
 
-namespace FuncDurable
+namespace YOUR_NAMESPACE_HERE
 {
     public static class SpeechToTextService
     {
@@ -860,6 +859,8 @@ public static async Task RunOrchestrator(
 
             if (!context.IsReplaying) { logger.LogInformation($"Saving transcription of {audioFile.Id} to Cosmos DB"); }
 
+            // Step4: Save transcription
+
             break;
         }
         else
@@ -982,7 +983,27 @@ var audioTranscription = new AudioTranscription
 };
 ```
 
+To be able to test this locally you should add the `SPEECH_TO_TEXT_ENDPOINT` and the `SPEECH_TO_TEXT_API_KEY` environment variables in your `local.settings.json` file:
+
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "STORAGE_ACCOUNT_CONNECTION_STRING": "<your-storage-account-connection-string>",
+    "STORAGE_ACCOUNT_CONTAINER": "audios",
+    "SPEECH_TO_TEXT_ENDPOINT": "<your-speech-to-text-endpoint>",
+    "SPEECH_TO_TEXT_API_KEY": "<your-speech-to-text-api-key>"
+  }
+}
+```
+
+Those configuration are already set in the Azure Function App settings (`func-drbl-<your-instance-name>`) when you deployed the infrastructure previously.
+
 If you run the function locally and upload an audio file, you should see the different steps of the orchestration in the logs and the transcription of the audio file.
+
+If necessary the source code with the solutions can be found in this Github Repository, under `./src/solutions/FuncDrbl`.
 
 </details>
 
@@ -990,39 +1011,77 @@ If you run the function locally and upload an audio file, you should see the dif
 
 Azure Cosmos DB is a fully managed NoSQL database which offers Geo-redundancy and multi-region write capabilities. It currently supports NoSQL, MongoDB, Cassandra, Gremlin, Table and PostgreSQL APIs and offers a serverless option which is perfect for our use case.
 
-Now the cognitive service provided with a transcript of your audio file, you will have to store it in a NoSQL database inside Cosmos DB.
-
-Now the next step is to add another activity in your Azure Durables Function to store the transcript in the Cosmos DB.
+You now have a transcription of your audio file, next step is to store it in a NoSQL database inside Cosmos DB.
 
 <div class="task" data-title="Tasks">
 
-> Store the JSON object in the Cosmos DB container called `audios_transcripts`
+> Create a new `Activity Function` called `SaveTranscription` to store the transcription of the audio file in Cosmos DB.
+> Use the `CosmosDBOutput` binding to store the data in the Cosmos DB.
+> Store the `AudioTranscription` object in the Cosmos DB container called `audios_transcripts`
+> Call the activity from the orchestration part of the `AudioTranscriptionOrchestration.cs` file.
 
 </div>
-
-![Cosmos DB flow](assets/logic-app-hol-cosmos-db.png)
 
 <div class="tip" data-title="Tips">
 
 > [Serverless Cosmos DB][cosmos-db]<br>
+> [Cosmos DB Output Binding][cosmos-db-output-binding]
 
 </div>
 
 <details>
 <summary>📚 Toggle solution</summary>
 
-Finally, it's time to compose the document object to insert using JSON and the `dynamic content` from the previous steps. The document should look like this:
+To store the transcription of the audio file in Cosmos DB, you will need to create a new `Activity Function` called `SaveTranscription` in the `AudioTranscriptionOrchestration.cs` file and apply the `CosmosDBOutput` binding to store the data in the Cosmos DB:
 
-```json
+```csharp
+[Function(nameof(SaveTranscription))]
+[CosmosDBOutput("%COSMOS_DB_DATABASE_NAME%",
+                    "%COSMOS_DB_CONTAINER_ID%",
+                    Connection = "COSMOS_DB_CONNECTION_STRING",
+                    CreateIfNotExists = true)]
+public static AudioTranscription SaveTranscription([ActivityTrigger] AudioTranscription audioTranscription, FunctionContext executionContext)
 {
-  "id": <guid-here>,
-  "path": <audio-file-storage-account-path>,
-  "result": <cognitive-service-text-result>,
-  "status": <cognitive-service-status-result>
+    ILogger logger = executionContext.GetLogger(nameof(SaveTranscription));
+    logger.LogInformation("Saving the audio transcription...");
+    
+    return audioTranscription;
 }
 ```
 
-</details>
+As you can see, by just defining the binding, the Azure Function will take care of storing the data in the Cosmos DB container, so you just need to return the object you want to store, in this case, the `AudioTranscription` object.
+
+To be able to connect the Azure Function to the Cosmos DB, you will need to set the `COSMOS_DB_CONNECTION_STRING`, the `COSMOS_DB_DATABASE_NAME` and the `COSMOS_DB_CONTAINER_ID` environment variable in your `local.settings.json` localy:
+
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "STORAGE_ACCOUNT_CONNECTION_STRING": "<your-storage-account-connection-string>",
+    "STORAGE_ACCOUNT_CONTAINER": "audios",
+    "SPEECH_TO_TEXT_ENDPOINT": "<your-speech-to-text-endpoint>",
+    "SPEECH_TO_TEXT_API_KEY": "<your-speech-to-text-api-key>",
+    "COSMOS_DB_CONNECTION_STRING": "<your-cosmos-db-connection-string>",
+    "COSMOS_DB_DATABASE_NAME": "<your-cosmos-db-database-name>",
+    "COSMOS_DB_CONTAINER_ID": "audios_transcripts"
+  }
+}
+```
+
+Those configuration are already set in the Azure Function App settings (`func-drbl-<your-instance-name>`) when you deployed the infrastructure previously.
+
+Now you just need to call the `SaveTranscription` function in the orchestration part of the `AudioTranscriptionOrchestration.cs` file:
+
+```csharp
+// Step4: Save transcription
+await context.CallActivityAsync(nameof(SaveTranscription), audioTranscription);
+
+if (!context.IsReplaying) { logger.LogInformation($"Finished processing of {audioFile.Id}"); }
+```
+
+You can now test your function locally and upload an audio file to see if the transcription is stored in the Cosmos DB container and check the logs to see the different steps of the orchestration.
 
 </details>
 
@@ -1034,7 +1093,9 @@ Deploy the Azure Durable Function using the same method as before but with the n
 func-drbl-<your-instance-suffix-name>
 ```
 
-You can now validate the entire workflow : delete and upload once again the audio file. You should see the new item created above in your Cosmos DB container !
+You can now validate the entire workflow : delete and upload once again the audio file. You should see the new item created above in your Cosmos DB container:
+
+![Cosmos Db Explorer](assets/cosmos-db-explorer.png)
 
 ## Lab 1 : Summary
 
@@ -1056,17 +1117,9 @@ The first Azure Function API created in the Lab offers a first security layer to
 [azure-function-blob-trigger]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-blob-trigger?tabs=python-v2%2Cisolated-process%2Cnodejs-v4%2Cextensionv5&pivots=programming-language-csharp
 [speech-to-text-batch-endpoint]: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/batch-transcription-audio-data?tabs=portal
 [monitor-pattern-durable-functions]: https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-monitor?tabs=csharp
-[storage-account]: https://learn.microsoft.com/fr-fr/cli/azure/storage/account?view=azure-cli-latest
-[storage-account-container]: https://learn.microsoft.com/fr-fr/cli/azure/storage/container?view=azure-cli-latest
-[event-grid-system-topic]: https://learn.microsoft.com/en-us/azure/event-grid/system-topics
-[event-grid-topic-subscription]: https://learn.microsoft.com/en-us/cli/azure/eventgrid/system-topic/event-subscription?view=azure-cli-latest
-[azure-messaging-services]: https://learn.microsoft.com/en-us/azure/service-bus-messaging/compare-messaging-services
-[azure-cli-extension]: https://learn.microsoft.com/en-us/cli/azure/azure-cli-extensions-overview
 [cognitive-services]: https://learn.microsoft.com/en-us/azure/cognitive-services/what-are-cognitive-services
-[cognitive-services-cli]: https://learn.microsoft.com/en-us/cli/azure/cognitiveservices/account?view=azure-cli-latest
-[key-vault]: https://learn.microsoft.com/fr-fr/cli/azure/keyvault?view=azure-cli-latest
+[cosmos-db-output-binding]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-cosmosdb-v2-output?tabs=python-v2%2Cisolated-process%2Cnodejs-v4%2Cextensionv4&pivots=programming-language-csharp
 [cognitive-service-api]: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/rest-speech-to-text-short#regions-and-endpoints
-[default-cognitive-sample]: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/get-started-speech-to-text?tabs=macos%2Cterminal&pivots=programming-language-rest&ocid=AID3051475&WT.mc_id=javascript-76678-cxa#recognize-speech-from-a-file
 [cosmos-db]: https://learn.microsoft.com/en-us/azure/cosmos-db/scripts/cli/nosql/serverless
 
 ---
@@ -1134,12 +1187,12 @@ Add a new HTTP-triggered function `GetTranscriptions` to your Function App and u
 |-------------------------------------|---------------------------------|----------------------|
 | COSMOS_DB_DATABASE_NAME             | Name of the Cosmos DB database  | `HolDb`              |
 | COSMOS_DB_CONTAINER_ID              | Name of the container in the DB | `audios_transcripts` |
-| COSMOS_DB_CONNECTION_STRING_SETTING | Cosmos DB connection string     |      In the Azure Portal                |
+| COSMOS_DB_CONNECTION_STRING | Cosmos DB connection string     |      In the Azure Portal                |
 
 Go to the Azure Function in your Azure Portal, inside the `Configuration` and `Application settings` and add the 3 new settings values:
 
 - Add the App settings `COSMOS_DB_DATABASE_NAME` and `COSMOS_DB_CONTAINER_ID` and set their values like defined in the Overview section above 
-- Set value of the connection string `COSMOS_DB_CONNECTION_STRING_SETTING` using the `Keys` section of your Cosmos Db resource on Azure.
+- Set value of the connection string `COSMOS_DB_CONNECTION_STRING` using the `Keys` section of your Cosmos Db resource on Azure.
 
 #### .NET 8 implementation
 
@@ -1190,7 +1243,7 @@ public HttpResponseData Run(
     [CosmosDBInput(
         databaseName: "%COSMOS_DB_DATABASE_NAME%",
         collectionName: "%COSMOS_DB_CONTAINER_ID%",
-        ConnectionStringSetting = "COSMOS_DB_CONNECTION_STRING_SETTING",
+        ConnectionStringSetting = "COSMOS_DB_CONNECTION_STRING",
         SqlQuery = "SELECT * FROM c ORDER BY c._ts DESC OFFSET 0 LIMIT 50")
     ] IEnumerable<Transcription> transcriptions
 )
@@ -1299,7 +1352,7 @@ public SendToAllAction? Run(
     [CosmosDBTrigger(
         databaseName: "%COSMOS_DB_DATABASE_NAME%",
         collectionName: "%COSMOS_DB_CONTAINER_ID%",
-        ConnectionStringSetting = "COSMOS_DB_CONNECTION_STRING_SETTING",
+        ConnectionStringSetting = "COSMOS_DB_CONNECTION_STRING",
         CreateLeaseCollectionIfNotExists = true,
         LeaseCollectionName = "leases")
     ] IReadOnlyList<Transcription> input
@@ -1380,8 +1433,6 @@ The entire architecture is **Serverless** : Azure compute resources will only be
 [cosmosdb-input-binding]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-cosmosdb-v2-input?tabs=python-v1%2Cin-process%2Cfunctionsv2&pivots=programming-language-python
 [offset-limit-clause-in-cosmosdb]: https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/query/offset-limit
 [cosmosdb-connection-string]: https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/how-to-dotnet-get-started?tabs=azure-cli%2Cwindows#retrieve-your-account-connection-string
-[azure-web-pubsub]: https://learn.microsoft.com/en-us/azure/azure-web-pubsub/overview
-[create-web-pubsub-instance]: https://learn.microsoft.com/en-us/azure/azure-web-pubsub/howto-develop-create-instance?tabs=CLI&pivots=method-azure-portal
 [web-pubsub-output-binding]: https://learn.microsoft.com/en-us/azure/azure-web-pubsub/reference-functions-bindings?tabs=csharp#output-binding
 [publish-and-consume-from-web-pubsub]: https://learn.microsoft.com/en-us/azure/azure-web-pubsub/tutorial-pub-sub-messages
 [cosmosdb-input]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-cosmosdb-v2-input?tabs=python-v2%2Cisolated-process%2Cextensionv4&pivots=programming-language-csharp

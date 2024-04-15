@@ -21,7 +21,7 @@ namespace FuncStd
             [CosmosDBTrigger(
                 databaseName: "%COSMOS_DB_DATABASE_NAME%",
                 containerName: "%COSMOS_DB_CONTAINER_ID%",
-                Connection = "COSMOS_DB_CONNECTION_STRING_SETTING",
+                Connection = "COSMOS_DB_CONNECTION_STRING",
                 CreateLeaseContainerIfNotExists = true,
                 LeaseContainerName = "leases")
             ] IReadOnlyList<Transcription> input

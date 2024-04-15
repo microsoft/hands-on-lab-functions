@@ -123,7 +123,7 @@ namespace FuncDurable
         [Function(nameof(SaveTranscription))]
         [CosmosDBOutput("%COSMOS_DB_DATABASE_NAME%",
                          "%COSMOS_DB_CONTAINER_ID%",
-                         Connection = "COSMOS_DB_CONNECTION_STRING_SETTING",
+                         Connection = "COSMOS_DB_CONNECTION_STRING",
                          CreateIfNotExists = true)]
         public static AudioTranscription SaveTranscription([ActivityTrigger] AudioTranscription audioTranscription, FunctionContext executionContext)
         {

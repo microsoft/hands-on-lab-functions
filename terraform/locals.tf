@@ -6,14 +6,11 @@ locals {
   cosmos_db_database_name  = "HolDb"
   cosmos_db_container_name = "audios_transcripts"
 
-  speech_to_text_model = "whisper"
-
   tags = merge(
     var.tags,
     tomap(
       {
         "Deployment"      = "terraform",
-        "ProjectFolder"   = "hands-on-labs-azure-functions",
         "Environment"     = var.environment,
         "Location"        = var.location,
         "ProjectName"     = "hands-on-lab-functions",

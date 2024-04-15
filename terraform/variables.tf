@@ -38,12 +38,6 @@ variable "tags" {
   default     = {}
 }
 
-variable "full_deployment" {
-  description = "If true, the full deployment will be executed"
-  type        = bool
-  default     = false
-}
-
 variable "swa_tier" {
   description = "The default tier for the Static Web App service. This should be set to Standard while deploying multiple time to a subscription because of the maximum number of resources allowed per subscription."
   type        = string
