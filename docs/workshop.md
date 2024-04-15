@@ -1108,6 +1108,10 @@ Deploy the Azure Durable Function using the same method as before but with the n
 func-drbl-<your-instance-suffix-name>
 ```
 
+If the deployment succeed you should see the new function in the Azure Function App:
+
+![Azure Function App](assets/durable-function-deployed.png)
+
 You can now validate the entire workflow : delete and upload once again the audio file. You should see the new item created above in your Cosmos DB container:
 
 ![Cosmos Db Explorer](assets/cosmos-db-explorer.png)
@@ -1168,7 +1172,7 @@ This function will be used to show all existing transcriptions on the demo Web A
 
 <div class="task" data-title="Task">
 
-> Create an HTTP-triggered function which returns transcriptions from Cosmos DB:
+> Create an HTTP-triggered function in the same project as the first Azure Function which returns transcriptions from Cosmos DB:
 >
 > - Trigger: `HTTP request`
 > - Action: Return the latest `50 transcriptions`, in `JSON` format
@@ -1257,8 +1261,8 @@ public HttpResponseData Run(
     [HttpTrigger(AuthorizationLevel.Function, "get")] HttpRequestData req,
     [CosmosDBInput(
         databaseName: "%COSMOS_DB_DATABASE_NAME%",
-        collectionName: "%COSMOS_DB_CONTAINER_ID%",
-        ConnectionStringSetting = "COSMOS_DB_CONNECTION_STRING",
+        containerName: "%COSMOS_DB_CONTAINER_ID%",
+        Connection = "COSMOS_DB_CONNECTION_STRING",
         SqlQuery = "SELECT * FROM c ORDER BY c._ts DESC OFFSET 0 LIMIT 50")
     ] IEnumerable<Transcription> transcriptions
 )
@@ -1285,7 +1289,7 @@ Check the [Query items guide][dotnet-query-items] for more details about the que
 
 </details>
 
-Once you could confirm you are getting the expected response by calling the HTTP endpoint of the function, you can go ahead and update the configuration of the demo Web App with the function's endpoint.
+Once you could confirm you are getting the expected response by calling the HTTP endpoint of the function, you can deploy your Azure Function on Azure and update the configuration of the demo Web App with the function's endpoint.
 
 You can do that by setting the value of the **Static Web App** environment variable `TRANSCRIPTION_FETCHING_URL` to the url of the `GetTranscriptions` function inside the `Configuration` section exactly like the Lab 1.
 
@@ -1336,13 +1340,13 @@ Add a new Cosmos DB-triggered function `CosmosToWebPubSub` to your Function App 
 
 | App setting                         | Description                           |
 |-------------------------------------|---------------------------------------|
-| WEB_PUBSUB_HUB_ID                   | Web PubSub resource name              |  
-| WEB_PUBSUB_CONNECTION_STRING        | Web PubSub primary connection string  |
+| WPS_HUB_NAME                        | Web PubSub resource name              |  
+| WPS_CONNECTION_STRING               | Web PubSub primary connection string  |
 
 You need to update the App settings of the Function App by adding the 2 new settings:
 
-- Set `WEB_PUBSUB_HUB_ID` with the name of the Web PubSub resource
-- Set `WEB_PUBSUB_CONNECTION_STRING` with the primary connection string in the `Keys` section of your Web PubSub resource on Azure.
+- Set `WPS_HUB_NAME` with the name of the Web PubSub resource
+- Set `WPS_CONNECTION_STRING` with the primary connection string in the `Keys` section of your Web PubSub resource on Azure.
 
 #### .NET 8 implementation
 
@@ -1356,20 +1360,20 @@ func new --name CosmosToWebPubSub --template "CosmosDBTrigger"
 dotnet add package Microsoft.Azure.Functions.Worker.Extensions.WebPubSub --version 1.7.0-beta.1
 ```
 
-This should create a `CosmosToWebPubSub.cs` file with a function that will trigger whenever you add a new item to a Cosmos DB collection.
+This should create a `CosmosToWebPubSub.cs` file with a function that will trigger whenever you add a new item to a Cosmos DB collection. You can remove the `MyDocument` class inside it as you will use the `Transcription` class you created before.
 
 Next, you will need to update the `Run` method with the following contents:
 
 ```csharp
 [Function(nameof(CosmosToWebPubSub))]
-[WebPubSubOutput(Hub = "%WEB_PUBSUB_HUB_ID%", Connection = "WEB_PUBSUB_CONNECTION_STRING")]
+[WebPubSubOutput(Hub = "%WPS_HUB_NAME%", Connection = "WPS_CONNECTION_STRING")]
 public SendToAllAction? Run(
     [CosmosDBTrigger(
         databaseName: "%COSMOS_DB_DATABASE_NAME%",
-        collectionName: "%COSMOS_DB_CONTAINER_ID%",
-        ConnectionStringSetting = "COSMOS_DB_CONNECTION_STRING",
-        CreateLeaseCollectionIfNotExists = true,
-        LeaseCollectionName = "leases")
+        containerName: "%COSMOS_DB_CONTAINER_ID%",
+        Connection = "COSMOS_DB_CONNECTION_STRING",
+        CreateLeaseContainerIfNotExists = true,
+        LeaseContainerName = "leases")
     ] IReadOnlyList<Transcription> input
 )
 {
@@ -1420,20 +1424,7 @@ The last step is to consume the newly published transcriptions in the demo Web A
 
 </div>
 
-<details>
-<summary>📚 Toggle solution</summary>
-
-You can retrieve a connection string for the Web PubSub directly with the Azure Portal or using this command line:
-
-```sh
-az webpubsub key show \
-    --name <unique-web-pubsub-instance-name> \
-    --resource-group <resource-group> \
-    --query primaryConnectionString \
-    --output tsv
-```
-
-</details>
+Redeploy your Azure Function and try again the web application. You should now see new transcriptions appearing in real-time as they get added to Cosmos DB.
 
 ## Lab 2 : Summary
 

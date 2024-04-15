@@ -16,7 +16,7 @@ namespace FuncStd
         }
 
         [Function("CosmosToWebPubSub")]
-        [WebPubSubOutput(Hub = "%WEB_PUBSUB_HUB_ID%", Connection = "WEB_PUBSUB_CONNECTION_STRING")]
+        [WebPubSubOutput(Hub = "%WPS_HUB_NAME%", Connection = "WPS_CONNECTION_STRING")]
         public SendToAllAction? Run(
             [CosmosDBTrigger(
                 databaseName: "%COSMOS_DB_DATABASE_NAME%",

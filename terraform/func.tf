@@ -14,15 +14,15 @@ resource "azurerm_linux_function_app" "standard" {
   }
 
   app_settings = {
-    STORAGE_ACCOUNT_CONTAINER             = "audios"
+    STORAGE_ACCOUNT_CONTAINER             = local.storage_account_container_name
     STORAGE_ACCOUNT_CONNECTION_STRING     = azurerm_storage_account.this.primary_connection_string
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.this.instrumentation_key
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.this.connection_string
     COSMOS_DB_DATABASE_NAME               = local.cosmos_db_database_name
     COSMOS_DB_CONTAINER_ID                = local.cosmos_db_container_name
     COSMOS_DB_CONNECTION_STRING           = azurerm_cosmosdb_account.this.primary_sql_connection_string
-    WEB_PUBSUB_HUB_ID                     = azurerm_web_pubsub.this.name
-    WEB_PUBSUB_CONNECTION_STRING          = azurerm_web_pubsub.this.primary_connection_string
+    WPS_HUB_NAME                          = azurerm_web_pubsub.this.name
+    WPS_CONNECTION_STRING                 = azurerm_web_pubsub.this.primary_connection_string
   }
 
   site_config {
@@ -49,10 +49,12 @@ resource "azurerm_linux_function_app" "durable" {
   }
 
   app_settings = {
-    STORAGE_ACCOUNT_CONTAINER             = "audios"
+    STORAGE_ACCOUNT_CONTAINER             = local.storage_account_container_name
     STORAGE_ACCOUNT_CONNECTION_STRING     = azurerm_storage_account.this.primary_connection_string
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.this.instrumentation_key
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.this.connection_string
+    SPEECH_TO_TEXT_ENDPOINT               = azurerm_cognitive_account.speech_to_text.endpoint
+    SPEECH_TO_TEXT_API_KEY                = azurerm_cognitive_account.speech_to_text.primary_access_key
     COSMOS_DB_DATABASE_NAME               = local.cosmos_db_database_name
     COSMOS_DB_CONTAINER_ID                = local.cosmos_db_container_name
     COSMOS_DB_CONNECTION_STRING           = azurerm_cosmosdb_account.this.primary_sql_connection_string

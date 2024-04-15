@@ -3,6 +3,8 @@ locals {
   resource_suffix_kebabcase = join("-", local.resource_suffix)
   resource_suffix_lowercase = join("", local.resource_suffix)
 
+  storage_account_container_name = "audios"
+
   cosmos_db_database_name  = "HolDb"
   cosmos_db_container_name = "audios_transcripts"
 
