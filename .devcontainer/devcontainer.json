@@ -41,9 +41,6 @@
         // Language related extensions
         "ms-dotnettools.csharp", 
         "ms-dotnettools.csdevkit",
-        // Mardown helpers : 
-        "davidanson.vscode-markdownlint", 
-        "valentjn.vscode-ltex",
         // Terraform
         "hashicorp.terraform"    
 
