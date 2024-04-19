@@ -17,7 +17,7 @@ variable "application" {
 variable "location" {
   description = "Azure deployment location"
   type        = string
-  default     = "westeurope"
+  default     = "eastus2"
 }
 
 variable "owner" {
