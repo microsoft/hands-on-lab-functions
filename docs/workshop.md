@@ -12,7 +12,7 @@ contacts: # Required. Must match the number of authors
   - "@damienaicheh"
   - "@ikhemissi"
 duration_minutes: 180
-tags: azure, azure functions, azure durable functions, cosmos db, web pubsub, static web app, api management, apim, csu, codespace, devcontainer
+tags: azure, azure functions, azure durable functions, cosmos db, web pubsub, static web app, csu, codespace, devcontainer
 navigation_levels: 3
 ---
 
@@ -32,13 +32,40 @@ During this workshop you will have the instructions to complete each steps. It i
 
 </div>
 
-## 🚀 Dev Environment Setup
+
+## Scenario
+
+The goal of the full lab is to upload an audio file to Azure and retrieve the transcripts back using a Web Application.
+
+Here is a diagram to illustrate the flow:
+
+![Hand's On Lab Architecture](assets/architecture-overview.svg)
+
+1. You will open the demo web application which sends an HTTP GET request to fetch existing transcriptions. This Azure Function endpoint retrieves the latest transcriptions stored in Cosmos DB, and returns them to the web application
+1. You will then upload an [audio file](assets/whatstheweatherlike.wav) in the web application interface and the web application sends an HTTP request to an Azure Function endpoint handling uploads will process the request 
+1. The Azure Function will upload the file to a Storage Account
+1. When the file is uploaded an Azure Durable Function will detect it and start processing it
+1. The audio file is sent to Azure Cognitive Services via the Azure Durable Function. The speech to text cognitive service will process the file and return the result to the Azure Durable Function.
+1. The Azure Durable Function will then store the transcript of the audio file in a Cosmos DB Database
+1. Another Azure Function endpoint will be triggered by the update event in CosmosDB.
+1. The Azure Function will then fetch the transcript from CosmosDB and publish it to Web Pub/Sub
+1. The web application being a subscriber of the Web Pub-Sub resource, it will be notified about the new transcript being added via a websocket and display it in the list.
+
+You will get more details about each of these services during the Hands On Lab.
+
+## Programming language
+
+You will have to create few functions in this workshop to address our overall scenario. You can choose the programming language you are the most comfortable with among the ones [supported by Azure Functions][az-func-languages]. We will provide examples in .NET 8 (isolated) for the moment, but other languages might be added in the future.
+
+With everything ready let's start the lab 🚀
+
+## Pre-requisites
 
 Before starting this lab, be sure to set your Azure environment :
 
 - An Azure Subscription with the **Contributor** role to create and manage the labs' resources and deploy the infrastructure as code
 - A dedicated resource group for this lab to ease the cleanup at the end.
-- Register the Azure providers on your Azure Subscription if not done yet: `Microsoft.CognitiveServices`, `Microsoft.DocumentDB`, `Microsoft.SignalRService`, `Microsoft.Web`, `Microsoft.ApiManagement`.
+- Register the Azure providers on your Azure Subscription if not done yet: `Microsoft.CognitiveServices`, `Microsoft.DocumentDB`, `Microsoft.SignalRService`, `Microsoft.Web`.
 
 
 To retrieve the lab content :
@@ -112,7 +139,7 @@ The following tools and access will be necessary to run the lab in good conditio
 
 Once you have set up your local environment, you can clone the Hands-on-lab-Functions repo you just forked on your machine, and open the local folder in Visual Studio Code and head to the next step. 
 
-## 🚀 Visual Studio Code Setup
+## Visual Studio Code Setup
 
 ### 👉 Load the Workspace
 
@@ -166,8 +193,6 @@ az provider register --namespace 'Microsoft.CognitiveServices'
 az provider register --namespace 'Microsoft.DocumentDB'
 # Azure Web PubSub
 az provider register --namespace 'Microsoft.SignalRService'
-# Azure API Management
-az provider register --namespace 'Microsoft.ApiManagement'
 # Azure Functions
 az provider register --namespace 'Microsoft.Web'
 ```
@@ -211,35 +236,6 @@ npm run swa:deploy -- \
 ```
 
 The deployment should take around 5 minutes to complete.
-
-## Scenario
-
-The goal of the full lab is to upload an audio file to Azure and retrieve the transcripts back using a Web Application.
-
-Here is a diagram to illustrate the flow:
-
-![Hand's On Lab Architecture](assets/architecture-overview.svg)
-
-1. You will open the demo web application which sends an HTTP GET request to APIM (API Management) to fetch existing transcriptions. APIM will be used as a facade for multiple APIs.
-1. The request is forwarded from APIM to an Azure Function endpoint handling transcription fetching
-1. This Azure Function endpoint retrieves the latest transcriptions stored in Cosmos DB, and returns them to the web application
-1. You will then upload an [audio file](assets/whatstheweatherlike.wav) in the web application interface and the web application sends an HTTP request to APIM
-1. An Azure Function endpoint handling uploads will process the request 
-1. The Azure Function will upload the file to a Storage Account
-1. When the file is uploaded an Azure Durable Function will detect it and start processing it
-1. The audio file is sent to Azure Cognitive Services via the Azure Durable Function. The speech to text cognitive service will process the file and return the result to the Azure Durable Function.
-1. The Azure Durable Function will then store the transcript of the audio file in a Cosmos DB Database
-1. Another Azure Function endpoint will be triggered by the update event in CosmosDB.
-1. The Azure Function will then fetch the transcript from CosmosDB and publish it to Web Pub/Sub
-1. The web application being a subscriber of the Web Pub-Sub resource, it will be notified about the new transcript being added via a websocket and display it in the list.
-
-You will get more details about each of these services during the Hands On Lab.
-
-## Programming language
-
-You will have to create few functions in this workshop to address our overall scenario. You can choose the programming language you are the most comfortable with among the ones [supported by Azure Functions][az-func-languages]. We will provide examples in .NET 8 (isolated) for the moment, but other languages might be added in the future.
-
-With everything ready let's start the lab 🚀
 
 [az-cli-install]: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli
 [az-func-core-tools]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=v4%2Clinux%2Ccsharp%2Cportal%2Cbash#install-the-azure-functions-core-tools
@@ -464,13 +460,13 @@ Use this url into your Postman to upload the audio file. Create a POST request a
 
 </details>
 
-### Connect the Web App
+## Connect the Web App
 
-It's now time to connect the Azure Function App which stand for a small API to upload your audio file and the Static Web App which is the front end of your application. The API Management (APIM) will be added in a future lab.
+It's now time to connect the Azure Function App which stand for a small API to upload your audio file and the Static Web App which is the front end of your application.
 
 <div class="task" data-title="Task">
 
-> - Check the README of the web app project to explore the environment variables supported by the Web App you deployed on Lab 0 and set the value of `FILE_UPLOADING_URL` to the url of the uploaded function which you have created in the previous lab.
+> - Check the README of the web app project to explore the environment variables supported by the Web App deployed at the begining and set the value of `FILE_UPLOADING_URL` to the url of the uploaded function which you have created in the previous lab.
 
 </div>
 
@@ -487,11 +483,33 @@ If you look at the `audios` container in the Storage Account, you should see the
 
 </details>
 
-## Process the audio file (1 hour 30 min)
+## Lab 1 : Summary
+
+By now you should have a solution that :
+
+- Send new audio files added to a blob storage using a first Azure Function, inside an `audios` container.
+
+The first Azure Function API created in the Lab offers a first security layer to the solution as it requires a key to be called, as well as makes sure all the files are stores with a uniquely generated name (GUID).
+
+[az-portal]: https://portal.azure.com
+[azure-function]: https://learn.microsoft.com/en-us/cli/azure/functionapp?view=azure-cli-latest
+[azure-function-core-tools]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=v4%2Cwindows%2Ccsharp%2Cportal%2Cbash
+[azure-function-basics]: https://learn.microsoft.com/en-us/azure/azure-functions/supported-languages
+[azure-function-http]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?pivots=programming-language-python&tabs=python-v2%2Cin-process%2Cfunctionsv2
+[azure-function-blob-output]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-blob-output?pivots=programming-language-python&tabs=python-v2%2Cin-process
+[azure-function-bindings-expression]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-expressions-patterns
+
+---
+
+# Lab 2 : Process the audio file (1 hour 30 min)
  
 To process the audio file, extract the transcript and save it to Azure Cosmos DB, you will need to create a Durable Function. Durable Functions are an extension of Azure Functions that lets you write stateful functions in a serverless environment. The extension manages state, checkpoints, and restarts for you.
 
-### Detect a file upload event 
+For this lab, you will focus on the following scope :
+
+![Hand's On Lab Architecture Lab 2](assets/architecture-lab2.svg)
+
+## Detect a file upload event 
 
 Now you have the audio file uploaded in the storage account, you will need to detect this event to trigger the next steps of the scenario.
 
@@ -643,7 +661,7 @@ Deploy your function using the VS Code extension or by command line and try to u
 
 </details>
 
-### Consume Speech to Text APIs
+## Consume Speech to Text APIs
 
 The Azure Cognitive Services are cloud-based AI services that give the ability to developers to quickly build intelligent apps thanks to these pre-trained models. They are available through client library SDKs in popular development languages and REST APIs.
 
@@ -1016,7 +1034,7 @@ If necessary the source code with the solutions can be found in this Github Repo
 
 </details>
 
-### Store data to Cosmos DB
+## Store data to Cosmos DB
 
 Azure Cosmos DB is a fully managed NoSQL database which offers Geo-redundancy and multi-region write capabilities. It currently supports NoSQL, MongoDB, Cassandra, Gremlin, Table and PostgreSQL APIs and offers a serverless option which is perfect for our use case.
 
@@ -1116,22 +1134,14 @@ You can now validate the entire workflow : delete and upload once again the audi
 
 ![Cosmos Db Explorer](assets/cosmos-db-explorer.png)
 
-## Lab 1 : Summary
+## Lab 2 : Summary
 
 By now you should have a solution that :
 
-- Send new audio files added to a blob storage using a first Azure Function, inside an `audios` container.
 - Invoke the execution of an Azure Durable Function responsible for retrieving the audio transcription thanks to a Speech to Text (Cognitive Service) batch processing call.
 - Once the transcription is retrieved, the Azure Durable Function store this value in a Cosmos DB database.
 
-The first Azure Function API created in the Lab offers a first security layer to the solution as it requires a key to be called, as well as makes sure all the files are stores with a uniquely generated name (GUID).
-
-[az-portal]: https://portal.azure.com
 [azure-function]: https://learn.microsoft.com/en-us/cli/azure/functionapp?view=azure-cli-latest
-[azure-function-core-tools]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=v4%2Cwindows%2Ccsharp%2Cportal%2Cbash
-[azure-function-basics]: https://learn.microsoft.com/en-us/azure/azure-functions/supported-languages
-[azure-function-http]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?pivots=programming-language-python&tabs=python-v2%2Cin-process%2Cfunctionsv2
-[azure-function-blob-output]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-blob-output?pivots=programming-language-python&tabs=python-v2%2Cin-process
 [azure-function-bindings-expression]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-expressions-patterns
 [azure-function-blob-trigger]: https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-blob-trigger?tabs=python-v2%2Cisolated-process%2Cnodejs-v4%2Cextensionv5&pivots=programming-language-csharp
 [speech-to-text-batch-endpoint]: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/batch-transcription-audio-data?tabs=portal
@@ -1143,13 +1153,13 @@ The first Azure Function API created in the Lab offers a first security layer to
 
 ---
 
-# Lab 2 : Retrieve transcriptions (1 hour)
+# Lab 3 : Retrieve transcriptions (30 min)
 
-In this second lab, you will focus on getting back the transcriptions of audio files and displaying them on the demo Web App. The front end of the web app is a Single-Page application with static files hosted in an Azure **Static Web App**. The front end will interact with other backend Http Endpoints services and the CosmosDb instance mainly via built-in Azure Function as a **Managed serverless** backend for the Web App.   
+In this lab, you will focus on getting back the transcriptions of audio files and displaying them on the demo Web App. The front end of the web app is a Single-Page application with static files hosted in an Azure **Static Web App**. The front end will interact with other backend Http Endpoints services and the CosmosDb instance mainly via built-in Azure Function as a **Managed serverless** backend for the Web App.   
 
 Previously processed transcriptions will be retrieved using HTTP GET requests whereas new transcriptions will be retrieved in real-time using websockets.
 
-![Achitecture scope of Lab 2](assets/architecture-lab2.svg)
+![Achitecture scope of Lab 3](assets/architecture-lab3.svg)
 
 ## Getting transcriptions on-demand (10 min)
 
@@ -1426,7 +1436,7 @@ The last step is to consume the newly published transcriptions in the demo Web A
 
 Redeploy your Azure Function and try again the web application. You should now see new transcriptions appearing in real-time as they get added to Cosmos DB.
 
-## Lab 2 : Summary
+## Lab 3 : Summary
 
 By now you should have a solution that :
 
