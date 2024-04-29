@@ -252,7 +252,7 @@ The deployment should take around 5 minutes to complete.
 
 ---
 
-# Lab 1 : Transcribe an audio file (2 hours)
+# Lab 1 : Transcribe an audio file (1 hour)
 
 For this first lab, you will focus on the following scope :
 
