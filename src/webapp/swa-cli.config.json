@@ -5,7 +5,7 @@
       "appLocation": ".",
       "apiPort": 7071,
       "apiLocation": "api",
-      "outputLocation": "build",
+      "outputLocation": "dist",
       "appBuildCommand": "npm run build",
       "apiBuildCommand": "npm run build",
       "run": "npm start",

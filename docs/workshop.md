@@ -224,7 +224,7 @@ RESOURCE_GROUP_NAME="$(terraform output -raw resource_group_name)"
 STATIC_WEB_APP="$(terraform output -raw static_web_app_name)"
 
 # Restore packages 
-cd ../src/webapp && npm install
+cd ../src/webapp && npm ci
 
 # Build the Web App
 npm run swa:build
