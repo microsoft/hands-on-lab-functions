@@ -5,12 +5,15 @@ title: Product Hands-on Lab - Functions
 short_title: Azure Functions
 description: This workshop will cover Azure Functions service that you will use to build a complete real world scenario.
 level: beginner # Required. Can be 'beginner', 'intermediate' or 'advanced'
+navigation_numbering: false
 authors: # Required. You can add as many authors as needed
   - Damien Aicheh
   - Iheb Khemissi
+  - Julien Strebler
 contacts: # Required. Must match the number of authors
   - "@damienaicheh"
   - "@ikhemissi"
+  - "@justrebl"
 duration_minutes: 180
 tags: azure, azure functions, azure durable functions, cosmos db, web pubsub, static web app, csu, codespace, devcontainer
 navigation_levels: 3
