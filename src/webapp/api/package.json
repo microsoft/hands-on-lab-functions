@@ -1,6 +1,6 @@
 {
   "name": "api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "scripts": {
     "build": "tsc",
@@ -13,7 +13,7 @@
     "@azure/functions": "^3.5.1",
     "@azure/web-pubsub": "^1.1.1",
     "@types/node": "^18.x",
-    "typescript": "^4.0.0"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
     "parse-multipart-data": "^1.5.0"

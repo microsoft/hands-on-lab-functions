@@ -64,7 +64,7 @@ function App() {
     closeFileUploadModal();
   }
 
-  const handleUploadAlertClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
+  const handleUploadAlertClose = (_?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') {
         return;
     }
